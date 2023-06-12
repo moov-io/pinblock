@@ -8,24 +8,32 @@ A block of data used to encapsulate a PIN during processing. The PIN block forma
 
 # todo 
 
-[ ] PIN block ISO-0 (format is ISO 9564-1 & ANSI X9.8 format 0)
+[] PIN block ISO-0 (format is ISO 9564-1 & ANSI X9.8 format 0)
  
 
 
 # further reading 
 
 [ISO 9564 Wikipedia](https://en.wikipedia.org/wiki/ISO_9564)
+
 [Complete list of Pin-blocks](https://www.eftlab.com/knowledge-base/complete-list-of-pin-blocks)
+
 [MasterCard Pin block encryption](https://developer.mastercard.com/card-issuance/documentation/pin-block-encryption-process/)
+
 [ICMA PIN block formats](http://icma.com/wp-content/uploads/2015/07/PinBlockFormats_SE1-15CM.pdf)
+
 [PINBlock Explained](https://www.linkedin.com/pulse/pinblock-explained-iftekharul-haque/)
 
 
 # Example implementations 
 
 [Newpay calculate PIN block for ISO8583](https://neapay.com/online-tools/calculate-pin-block.html)
+
 [EMV Labs PIN Block calculator](https://emvlab.org/pinblock/)
+
 [Payment Card Tools](https://paymentcardtools.com/pin-block-calculators/iso9564-format-0)
+
+[Java example](https://gist.github.com/ozkansari/65fa143b2018bb7c2efaf44e76d89e62)
 
 
 
