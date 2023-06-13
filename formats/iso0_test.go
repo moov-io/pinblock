@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestISO0Create(t *testing.T) {
+func TestISO0Encode(t *testing.T) {
 	pin := "1234"
 	account := "5432101234567891"
 
@@ -19,4 +19,10 @@ func TestISO0Create(t *testing.T) {
 	// can be checked here:
 	// https://paymentcardtools.com/pin-block-calculators/iso9564-format-0
 	require.Equal(t, "041215FEDCBA9876", pinBlock)
+
+	// test Decode
+	pin, err = iso0.Decode(pinBlock, account)
+	require.NoError(t, err)
+
+	require.Equal(t, "1234", pin)
 }
