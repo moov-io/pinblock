@@ -11,7 +11,7 @@ func TestPINBlock(t *testing.T) {
 	account := "5432101234567891"
 
 	// Create a PIN block in ISO0 format.
-	pinBlock, err := CreatePINBlock(pin, account, "ISO0")
+	pinBlock, err := EncodePINBlock(pin, account, "ISO0")
 	require.NoError(t, err)
 
 	require.Equal(t, "041215FEDCBA9876", pinBlock)

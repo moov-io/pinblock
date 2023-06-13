@@ -8,7 +8,7 @@ import (
 
 // PINBlock is an interface to represent a PIN block format.
 type PINBlock interface {
-	Create(pin string, account string) (string, error)
+	Encode(pin string, account string) (string, error)
 }
 
 // GetPINBlockFormat returns a PINBlock of the specified format.
@@ -22,11 +22,11 @@ func GetPINBlockFormat(format string) (PINBlock, error) {
 	}
 }
 
-// CreatePINBlock creates a PIN block in the specified format.
-func CreatePINBlock(pin string, account string, format string) (string, error) {
+// EncodePINBlock creates a PIN block in the specified format.
+func EncodePINBlock(pin string, account string, format string) (string, error) {
 	pinBlockFormat, err := GetPINBlockFormat(format)
 	if err != nil {
 		return "", err
 	}
-	return pinBlockFormat.Create(pin, account)
+	return pinBlockFormat.Encode(pin, account)
 }

@@ -12,7 +12,7 @@ func TestISO0Create(t *testing.T) {
 	account := "5432101234567891"
 
 	iso0 := formats.NewISO0()
-	pinBlock, err := iso0.Create(pin, account)
+	pinBlock, err := iso0.Encode(pin, account)
 
 	require.NoError(t, err)
 
