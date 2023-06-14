@@ -33,9 +33,9 @@ jobs:
       run: make install
 
     - name: Check
-      if: runner.os == 'Linux'
+      if: runner.os != 'Windows'
       run: make check
 
     - name: Go Tests
-      if: runner.os != 'Linux'
+      if: runner.os == 'Windows'
       run: go test ./... -count 1 -short
