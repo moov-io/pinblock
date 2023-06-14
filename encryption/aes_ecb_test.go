@@ -22,16 +22,6 @@ func TestAesECB(t *testing.T) {
 		require.Equal(t, "1234567890123456", string(plainText))
 	})
 
-	t.Run("Create with wrong key", func(t *testing.T) {
-		// short key
-		_, err := NewAesECB([]byte("1234567890"))
-		require.Error(t, err)
-
-		// long key
-		_, err = NewAesECB([]byte("12345678901234561234567890123456"))
-		require.Error(t, err)
-	})
-
 	t.Run("Encrypt/Decrypt with wrong value", func(t *testing.T) {
 		cipher, err := NewAesECB([]byte("1234567890123456"))
 		require.NoError(t, err)

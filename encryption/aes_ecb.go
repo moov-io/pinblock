@@ -12,10 +12,6 @@ type AesECB struct {
 }
 
 func NewAesECB(key []byte) (*AesECB, error) {
-	if len(key) != 16 {
-		return nil, fmt.Errorf("key length must be 16 bytes")
-	}
-
 	cipher, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, fmt.Errorf("creating cipher: %w", err)
