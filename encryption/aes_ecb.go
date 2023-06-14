@@ -6,7 +6,6 @@ import (
 	"fmt"
 )
 
-// only supports 128 bits key and 128 bits block size
 type AesECB struct {
 	cipherBlock cipher.Block
 }
