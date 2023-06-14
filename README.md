@@ -8,8 +8,8 @@ A block of data used to encapsulate a PIN during processing. The PIN block forma
 
 # todo 
 
-[] PIN block ISO-0 (format is ISO 9564-1 & ANSI X9.8 format 0)
- 
+- [x] PIN block ISO-0 (ISO 9564-1, ANSI X9.8, VISA-1, ECI-0)
+- [ ] PIN block ISO-4 (ISO 9564-1: 2017)
 
 
 # further reading 
@@ -24,6 +24,7 @@ A block of data used to encapsulate a PIN during processing. The PIN block forma
 
 [PINBlock Explained](https://www.linkedin.com/pulse/pinblock-explained-iftekharul-haque/)
 
+[Implementing ISO Format 4 PIN Blocks](https://listings.pcisecuritystandards.org/documents/Implementing_ISO_Format_4_PIN_Blocks_Information_Supplement.pdf)
 
 # Example implementations 
 
@@ -32,10 +33,6 @@ A block of data used to encapsulate a PIN during processing. The PIN block forma
 [EMV Labs PIN Block calculator](https://emvlab.org/pinblock/)
 
 [Payment Card Tools](https://paymentcardtools.com/pin-block-calculators/iso9564-format-0)
-
-[Java example](https://gist.github.com/ozkansari/65fa143b2018bb7c2efaf44e76d89e62)
-
-
 
 
 ## Getting help
