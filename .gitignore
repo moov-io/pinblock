@@ -21,3 +21,4 @@
 go.work
 coverage.txt
 /bin
+lint-project.sh
