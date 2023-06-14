@@ -30,20 +30,20 @@ func TestAesECB(t *testing.T) {
 
 		// longer than 16 bytes
 		_, err = cipher.Encrypt([]byte("12345678901234561234567890123456"))
-		require.Error(t, err)
+		require.EqualError(t, err, "plain text length must be 16 bytes")
 
 		// shorter than 16 bytes
 		_, err = cipher.Encrypt([]byte("123456789012345"))
-		require.Error(t, err)
+		require.EqualError(t, err, "plain text length must be 16 bytes")
 
 		// decrypt
 
 		// longer than 16 bytes
 		_, err = cipher.Decrypt([]byte("12345678901234561234567890123456"))
-		require.Error(t, err)
+		require.EqualError(t, err, "cipher text length must be 16 bytes")
 
 		// shorter than 16 bytes
 		_, err = cipher.Decrypt([]byte("123456789012345"))
-		require.Error(t, err)
+		require.EqualError(t, err, "cipher text length must be 16 bytes")
 	})
 }
