@@ -1,14 +1,20 @@
 package encryption
 
 import (
+	"crypto/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestAesECB(t *testing.T) {
+	// create a random key
+	key := make([]byte, 16)
+	_, err := rand.Read(key)
+	require.NoError(t, err)
+
 	t.Run("Encode/Decode", func(t *testing.T) {
-		cipher, err := NewAesECB([]byte("1234567890123456"))
+		cipher, err := NewAesECB(key)
 		require.NoError(t, err)
 
 		cipherText, err := cipher.Encrypt([]byte("1234567890123456"))
@@ -23,7 +29,7 @@ func TestAesECB(t *testing.T) {
 	})
 
 	t.Run("Encrypt/Decrypt with wrong value", func(t *testing.T) {
-		cipher, err := NewAesECB([]byte("1234567890123456"))
+		cipher, err := NewAesECB(key)
 		require.NoError(t, err)
 
 		// encrypt
