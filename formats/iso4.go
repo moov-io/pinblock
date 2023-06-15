@@ -25,6 +25,16 @@ func NewISO4(cipher Cipher) *ISO4 {
 	}
 }
 
+// Format returns iso type
+func (i *ISO4) Format() string {
+	return "Format 4 (ISO-4)"
+}
+
+// Padding returns padding pattern
+func (i *ISO4) Padding(pin string) string {
+	return strings.Repeat(i.Filler, 16-len(pin)-2)
+}
+
 // Encode returns an ISO-4 formatted and encrypted PIN block
 func (i *ISO4) Encode(pin, account string) (string, error) {
 	// both pinBlock and panBlock are 16 bytes (128 bits)
@@ -38,8 +48,7 @@ func (i *ISO4) Encode(pin, account string) (string, error) {
 		return "", fmt.Errorf("generating random bytes: %w", err)
 	}
 
-	padding := strings.Repeat(i.Filler, 16-len(pin)-2)
-	pinBlock := fmt.Sprintf("4%X%s%s%X", len(pin), pin, padding, randomBytes)
+	pinBlock := fmt.Sprintf("4%X%s%s%X", len(pin), pin, i.Padding(pin), randomBytes)
 
 	rawPinBlock, err := hex.DecodeString(pinBlock)
 	if err != nil {
