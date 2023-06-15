@@ -1,7 +1,6 @@
 package formats
 
 import (
-	"encoding/hex"
 	"fmt"
 	"strings"
 )
@@ -12,12 +11,12 @@ type ISO0 struct {
 
 func NewISO0() *ISO0 {
 	return &ISO0{
-		Filler: "F",
+		Filler: "F", // default to ISO0's Filler
 	}
 }
 
 // Encode returns the ISO0 PIN block for the given PIN and account number
-func (i *ISO0) Encode(pin string, account string) (string, error) {
+func (i *ISO0) Encode(pin, account string) (string, error) {
 	if len(pin) < 4 || len(pin) > 12 {
 		return "", fmt.Errorf("pin length must be between 4 and 12 digits")
 	}
@@ -43,7 +42,7 @@ func (i *ISO0) Encode(pin string, account string) (string, error) {
 	return strings.ToUpper(xorBlock), nil
 }
 
-func (i *ISO0) Decode(pinBlock string, account string) (string, error) {
+func (i *ISO0) Decode(pinBlock, account string) (string, error) {
 	if len(pinBlock) != 16 {
 		return "", fmt.Errorf("pin block must be 16 characters")
 	}
@@ -65,27 +64,4 @@ func (i *ISO0) Decode(pinBlock string, account string) (string, error) {
 	pin := decodedBlock[2 : 2+pinLength]
 
 	return pin, nil
-}
-
-func xorHex(a, b string) (string, error) {
-	bytesA, err := hex.DecodeString(a)
-	if err != nil {
-		return "", err
-	}
-	bytesB, err := hex.DecodeString(b)
-	if err != nil {
-		return "", err
-	}
-
-	if len(bytesA) != len(bytesB) {
-		return "", fmt.Errorf("length mismatch: %d vs %d", len(bytesA), len(bytesB))
-	}
-
-	// XOR the bytes
-	xorBytes := make([]byte, len(bytesA))
-	for i := 0; i < len(bytesA); i++ {
-		xorBytes[i] = bytesA[i] ^ bytesB[i]
-	}
-
-	return hex.EncodeToString(xorBytes), nil
 }
