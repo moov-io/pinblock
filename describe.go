@@ -22,7 +22,7 @@ func Describe(iso formats.ISO, w io.Writer, method, pin, account string) error {
 		return describeDecode(iso, w, pin, account)
 	}
 
-	return fmt.Errorf("the method(%s) doesn't support yet", method)
+	return fmt.Errorf("describe does not support a %s format", method)
 }
 
 func describeEncode(iso formats.ISO, w io.Writer, pin, account string) error {
@@ -38,7 +38,11 @@ func describeEncode(iso formats.ISO, w io.Writer, pin, account string) error {
 	fmt.Fprintf(tw, "%s\n", strings.Repeat("*", 36))
 	fmt.Fprintf(tw, "PAN\t: %s\n", account)
 	fmt.Fprintf(tw, "PIN\t: %s\n", pin)
-	fmt.Fprintf(tw, "PAD\t: %s\n", iso.Padding(pin))
+	if pad, _ := iso.Padding(pin); len(pad) == 0 {
+		fmt.Fprintf(tw, "PAD\t: N/A\n")
+	} else {
+		fmt.Fprintf(tw, "PAD\t: %s\n", pad)
+	}
 	fmt.Fprintf(tw, "Format\t: %s\n", iso.Format())
 	fmt.Fprintf(tw, "%s\n", strings.Repeat("-", 36))
 	fmt.Fprintf(tw, "Clear PIN block\t: %s\n\n", result)
@@ -61,7 +65,11 @@ func describeDecode(iso formats.ISO, w io.Writer, pinBlock, account string) erro
 	fmt.Fprintf(tw, "%s\n", strings.Repeat("*", 36))
 	fmt.Fprintf(tw, "PIN block\t: %s\n", pinBlock)
 	fmt.Fprintf(tw, "PAN block\t: %s\n", account)
-	fmt.Fprintf(tw, "PAD\t: %s\n", iso.Padding(result))
+	if pad, _ := iso.Padding(result); len(pad) == 0 {
+		fmt.Fprintf(tw, "PAD\t: N/A\n")
+	} else {
+		fmt.Fprintf(tw, "PAD\t: %s\n", pad)
+	}
 	fmt.Fprintf(tw, "Format\t: %s\n", iso.Format())
 	fmt.Fprintf(tw, "%s\n", strings.Repeat("-", 36))
 	fmt.Fprintf(tw, "Decoded PIN\t: %s\n\n", result)

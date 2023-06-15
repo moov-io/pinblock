@@ -31,24 +31,31 @@ func (i *ISO4) Format() string {
 }
 
 // Padding returns padding pattern
-func (i *ISO4) Padding(pin string) string {
-	return strings.Repeat(i.Filler, 16-len(pin)-2)
-}
+func (i *ISO4) Padding(pin string) (string, error) {
 
-// Encode returns an ISO-4 formatted and encrypted PIN block
-func (i *ISO4) Encode(pin, account string) (string, error) {
 	// both pinBlock and panBlock are 16 bytes (128 bits)
 	if len(pin) < 4 || len(pin) > 12 {
 		return "", fmt.Errorf("pin length must be between 4 and 12 digits")
 	}
 
+	return strings.Repeat(i.Filler, 16-len(pin)-2), nil
+}
+
+// Encode returns an ISO-4 formatted and encrypted PIN block
+func (i *ISO4) Encode(pin, account string) (string, error) {
+
+	pad, err := i.Padding(pin)
+	if err != nil {
+		return "", err
+	}
+
 	randomBytes := make([]byte, 8)
-	_, err := rand.Read(randomBytes)
+	_, err = rand.Read(randomBytes)
 	if err != nil {
 		return "", fmt.Errorf("generating random bytes: %w", err)
 	}
 
-	pinBlock := fmt.Sprintf("4%X%s%s%X", len(pin), pin, i.Padding(pin), randomBytes)
+	pinBlock := fmt.Sprintf("4%X%s%s%X", len(pin), pin, pad, randomBytes)
 
 	rawPinBlock, err := hex.DecodeString(pinBlock)
 	if err != nil {

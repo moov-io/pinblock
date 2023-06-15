@@ -21,19 +21,25 @@ func (i *ISO0) Format() string {
 }
 
 // Padding returns padding pattern
-func (i *ISO0) Padding(pin string) string {
-	return strings.Repeat(i.Filler, 14-len(pin))
-}
+func (i *ISO0) Padding(pin string) (string, error) {
 
-// Encode returns the ISO0 PIN block for the given PIN and account number
-func (i *ISO0) Encode(pin, account string) (string, error) {
 	if len(pin) < 4 || len(pin) > 12 {
 		return "", fmt.Errorf("pin length must be between 4 and 12 digits")
 	}
 
+	return strings.Repeat(i.Filler, 14-len(pin)), nil
+}
+
+// Encode returns the ISO0 PIN block for the given PIN and account number
+func (i *ISO0) Encode(pin, account string) (string, error) {
+	pad, err := i.Padding(pin)
+	if err != nil {
+		return "", err
+	}
+
 	// pin block should start with 0, then add length of pin, then add pin,
 	// then add F until 16 characters
-	pinBlock := fmt.Sprintf("0%d%s%s", len(pin), pin, i.Padding(pin))
+	pinBlock := fmt.Sprintf("0%d%s%s", len(pin), pin, pad)
 
 	// account number must be at least 13 digits, including the check digit
 	if len(account) < 13 {

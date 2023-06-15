@@ -4,7 +4,7 @@ type ISO interface {
 	Decode(pinBlock, account string) (string, error)
 	Encode(pin, account string) (string, error)
 	Format() string
-	Padding(pin string) string
+	Padding(pin string) (string, error)
 }
 
 var _ ISO = &ISO0{}
