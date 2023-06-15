@@ -9,7 +9,7 @@ A block of data used to encapsulate a PIN during processing. The PIN block forma
 # todo 
 
 - [x] PIN block ISO-0 (ISO 9564-1, ANSI X9.8, VISA-1, ECI-0)
-- [ ] PIN block ISO-4 (ISO 9564-1: 2017)
+- [x] PIN block ISO-4 (ISO 9564-1: 2017)
 
 
 # further reading 
