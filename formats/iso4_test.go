@@ -53,7 +53,7 @@ func TestISO4(t *testing.T) {
 
 		iso4 := NewISO4(cipher)
 		out := bytes.NewBuffer([]byte{})
-		iso4.SetWriter(out)
+		iso4.SetDebugWriter(out)
 
 		// Encode
 		pinBlock, err := iso4.Encode("12344", "432198765432109870")

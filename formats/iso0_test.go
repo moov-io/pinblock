@@ -30,7 +30,7 @@ func TestISO0(t *testing.T) {
 		iso0 := formats.NewISO0()
 
 		out := bytes.NewBuffer([]byte{})
-		iso0.SetWriter(out)
+		iso0.SetDebugWriter(out)
 
 		pinBlock, err := iso0.Encode(pin, account)
 		require.NoError(t, err)
@@ -43,8 +43,8 @@ PIN     : 1234
 PAD     : FFFFFFFFFF
 Format  : Format 0 (ISO-0)
 ------------------------------------
-Encoded PIN block  : 041215FEDCBA9876
-Encoded PAN block  : 0000210123456789
+Formatted PIN block  : 041215FEDCBA9876
+Formatted PAN block  : 0000210123456789
 
 `
 		require.Equal(t, expectedOutput, out.String())
@@ -104,7 +104,7 @@ func TestISO0_Decode(t *testing.T) {
 		iso0 := formats.NewISO0()
 
 		out := bytes.NewBuffer([]byte{})
-		iso0.SetWriter(out)
+		iso0.SetDebugWriter(out)
 
 		pin, err := iso0.Decode(pinBlock, account)
 		require.NoError(t, err)
@@ -112,13 +112,12 @@ func TestISO0_Decode(t *testing.T) {
 
 		expectedOutput := `PIN block decode operation finished
 ************************************
-PAN block  : 0000210123456789
-PIN block  : 041215FEDCBA9876
-PAD        : FFFFFFFFFF
-Format     : Format 0 (ISO-0)
+Formatted PAN block  : 0000210123456789
+Formatted PIN block  : 041234FFFFFFFFFF
+PAD                  : FFFFFFFFFF
+Format               : Format 0 (ISO-0)
 ------------------------------------
 Decoded PIN  : 1234
-Decoded PAN  : 5432101234567891
 
 `
 		require.Equal(t, expectedOutput, out.String())

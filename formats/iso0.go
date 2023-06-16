@@ -10,7 +10,7 @@ import (
 type ISO0 struct {
 	Filler string
 
-	writer io.Writer
+	debugWriter io.Writer
 }
 
 func NewISO0() *ISO0 {
@@ -34,17 +34,9 @@ func (i *ISO0) padding(pin string) (string, error) {
 	return strings.Repeat(i.Filler, 14-len(pin)), nil
 }
 
-// SetWriter will set writer for getting output messages of decode/encode information
-func (i *ISO0) getWriter() io.Writer {
-	if i.writer != nil {
-		return i.writer
-	}
-	return io.Discard
-}
-
-// SetWriter will set writer for getting output message of encoding and decoding logic
-func (i *ISO0) SetWriter(writer io.Writer) {
-	i.writer = tabwriter.NewWriter(writer, 0, 0, 2, ' ', 0)
+// SetDebugWriter will set writer for getting output message of encoding and decoding logic
+func (i *ISO0) SetDebugWriter(writer io.Writer) {
+	i.debugWriter = tabwriter.NewWriter(writer, 0, 0, 2, ' ', 0)
 }
 
 // Encode returns the ISO0 PIN block for the given PIN and account number
@@ -73,8 +65,8 @@ func (i *ISO0) Encode(pin, account string) (string, error) {
 	}
 
 	// write encode information
-	{
-		tw := i.getWriter()
+	if i.debugWriter != nil {
+		tw := i.debugWriter
 		fmt.Fprintf(tw, "PIN block encode operation finished\n")
 		fmt.Fprintf(tw, "%s\n", strings.Repeat("*", 36))
 		fmt.Fprintf(tw, "PAN\t: %s\n", account)
@@ -86,8 +78,8 @@ func (i *ISO0) Encode(pin, account string) (string, error) {
 		}
 		fmt.Fprintf(tw, "Format\t: %s\n", i.format())
 		fmt.Fprintf(tw, "%s\n", strings.Repeat("-", 36))
-		fmt.Fprintf(tw, "Encoded PIN block\t: %s\n", strings.ToUpper(xorBlock))
-		fmt.Fprintf(tw, "Encoded PAN block\t: %s\n", strings.ToUpper(accountBlock))
+		fmt.Fprintf(tw, "Formatted PIN block\t: %s\n", strings.ToUpper(xorBlock))
+		fmt.Fprintf(tw, "Formatted PAN block\t: %s\n", strings.ToUpper(accountBlock))
 		tw.Write([]byte("\n"))
 	}
 
@@ -116,12 +108,12 @@ func (i *ISO0) Decode(pinBlock, account string) (string, error) {
 	pin := decodedBlock[2 : 2+pinLength]
 
 	// write decode information
-	{
-		tw := i.getWriter()
+	if i.debugWriter != nil {
+		tw := i.debugWriter
 		fmt.Fprintf(tw, "PIN block decode operation finished\n")
 		fmt.Fprintf(tw, "%s\n", strings.Repeat("*", 36))
-		fmt.Fprintf(tw, "PAN block\t: %s\n", accountBlock)
-		fmt.Fprintf(tw, "PIN block\t: %s\n", pinBlock)
+		fmt.Fprintf(tw, "Formatted PAN block\t: %s\n", strings.ToUpper(accountBlock))
+		fmt.Fprintf(tw, "Formatted PIN block\t: %s\n", strings.ToUpper(decodedBlock))
 		if pad, _ := i.padding(pin); len(pad) == 0 {
 			fmt.Fprintf(tw, "PAD\t: N/A\n")
 		} else {
@@ -130,7 +122,6 @@ func (i *ISO0) Decode(pinBlock, account string) (string, error) {
 		fmt.Fprintf(tw, "Format\t: %s\n", i.format())
 		fmt.Fprintf(tw, "%s\n", strings.Repeat("-", 36))
 		fmt.Fprintf(tw, "Decoded PIN\t: %s\n", pin)
-		fmt.Fprintf(tw, "Decoded PAN\t: %s\n", account)
 		tw.Write([]byte("\n"))
 	}
 
