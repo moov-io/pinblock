@@ -2,11 +2,15 @@ package formats
 
 import (
 	"fmt"
+	"io"
 	"strings"
+	"text/tabwriter"
 )
 
 type ISO0 struct {
 	Filler string
+
+	writer io.Writer
 }
 
 func NewISO0() *ISO0 {
@@ -16,12 +20,12 @@ func NewISO0() *ISO0 {
 }
 
 // Format returns iso type
-func (i *ISO0) Format() string {
+func (i *ISO0) format() string {
 	return "Format 0 (ISO-0)"
 }
 
 // Padding returns padding pattern
-func (i *ISO0) Padding(pin string) (string, error) {
+func (i *ISO0) padding(pin string) (string, error) {
 
 	if len(pin) < 4 || len(pin) > 12 {
 		return "", fmt.Errorf("pin length must be between 4 and 12 digits")
@@ -30,9 +34,23 @@ func (i *ISO0) Padding(pin string) (string, error) {
 	return strings.Repeat(i.Filler, 14-len(pin)), nil
 }
 
+// SetWriter will set writer for getting output messages of decode/encode information
+func (i *ISO0) getWriter() io.Writer {
+	if i.writer != nil {
+		return i.writer
+	}
+	return io.Discard
+}
+
+// SetWriter will set writer for getting output message of encoding and decoding logic
+func (i *ISO0) SetWriter(writer io.Writer) {
+	i.writer = tabwriter.NewWriter(writer, 0, 0, 2, ' ', 0)
+}
+
 // Encode returns the ISO0 PIN block for the given PIN and account number
 func (i *ISO0) Encode(pin, account string) (string, error) {
-	pad, err := i.Padding(pin)
+
+	pad, err := i.padding(pin)
 	if err != nil {
 		return "", err
 	}
@@ -52,6 +70,25 @@ func (i *ISO0) Encode(pin, account string) (string, error) {
 	xorBlock, err := xorHex(pinBlock, accountBlock)
 	if err != nil {
 		return "", err
+	}
+
+	// write encode information
+	{
+		tw := i.getWriter()
+		fmt.Fprintf(tw, "PIN block encode operation finished\n")
+		fmt.Fprintf(tw, "%s\n", strings.Repeat("*", 36))
+		fmt.Fprintf(tw, "PAN\t: %s\n", account)
+		fmt.Fprintf(tw, "PIN\t: %s\n", pin)
+		if pad, _ := i.padding(pin); len(pad) == 0 {
+			fmt.Fprintf(tw, "PAD\t: N/A\n")
+		} else {
+			fmt.Fprintf(tw, "PAD\t: %s\n", pad)
+		}
+		fmt.Fprintf(tw, "Format\t: %s\n", i.format())
+		fmt.Fprintf(tw, "%s\n", strings.Repeat("-", 36))
+		fmt.Fprintf(tw, "Encoded PIN block\t: %s\n", strings.ToUpper(xorBlock))
+		fmt.Fprintf(tw, "Encoded PAN block\t: %s\n", strings.ToUpper(accountBlock))
+		tw.Write([]byte("\n"))
 	}
 
 	return strings.ToUpper(xorBlock), nil
@@ -77,6 +114,25 @@ func (i *ISO0) Decode(pinBlock, account string) (string, error) {
 	// decodedBlock should start with 0, then has length of pin, then has pin, then has F until 16 characters
 	pinLength := int(decodedBlock[1] - '0')
 	pin := decodedBlock[2 : 2+pinLength]
+
+	// write decode information
+	{
+		tw := i.getWriter()
+		fmt.Fprintf(tw, "PIN block decode operation finished\n")
+		fmt.Fprintf(tw, "%s\n", strings.Repeat("*", 36))
+		fmt.Fprintf(tw, "PAN block\t: %s\n", accountBlock)
+		fmt.Fprintf(tw, "PIN block\t: %s\n", pinBlock)
+		if pad, _ := i.padding(pin); len(pad) == 0 {
+			fmt.Fprintf(tw, "PAD\t: N/A\n")
+		} else {
+			fmt.Fprintf(tw, "PAD\t: %s\n", pad)
+		}
+		fmt.Fprintf(tw, "Format\t: %s\n", i.format())
+		fmt.Fprintf(tw, "%s\n", strings.Repeat("-", 36))
+		fmt.Fprintf(tw, "Decoded PIN\t: %s\n", pin)
+		fmt.Fprintf(tw, "Decoded PAN\t: %s\n", account)
+		tw.Write([]byte("\n"))
+	}
 
 	return pin, nil
 }
