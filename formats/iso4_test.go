@@ -2,7 +2,6 @@ package formats
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 
 	"github.com/moov-io/pinblock/encryption"
@@ -69,7 +68,7 @@ PAD     : AAAAAAAAA
 Format  : Format 4 (ISO-4)
 ------------------------------------
 PAN block            : 64321987654321098700000000000000`
-		require.Equal(t, true, strings.Contains(out.String(), expectedOutput))
+		require.Contains(t, out.String(), expectedOutput)
 
 		// flash buffer
 		out.Reset()
@@ -81,6 +80,6 @@ PAN block            : 64321987654321098700000000000000`
 		require.Equal(t, "12344", pin)
 
 		expectedOutput = `PIN block decode operation finished`
-		require.Equal(t, true, strings.Contains(out.String(), expectedOutput))
+		require.Contains(t, out.String(), expectedOutput)
 	})
 }
