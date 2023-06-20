@@ -1,6 +1,7 @@
 package formats_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/moov-io/pinblock/formats"
@@ -20,6 +21,33 @@ func TestISO0(t *testing.T) {
 		// can be checked here:
 		// https://paymentcardtools.com/pin-block-calculators/iso9564-format-0
 		require.Equal(t, "041215FEDCBA9876", pinBlock)
+	})
+
+	t.Run("encode logs", func(t *testing.T) {
+		pin := "1234"
+		account := "5432101234567891"
+
+		iso0 := formats.NewISO0()
+
+		out := bytes.NewBuffer([]byte{})
+		iso0.SetDebugWriter(out)
+
+		pinBlock, err := iso0.Encode(pin, account)
+		require.NoError(t, err)
+		require.Equal(t, "041215FEDCBA9876", pinBlock)
+
+		expectedOutput := `PIN block encode operation finished
+************************************
+PAN     : 5432101234567891
+PIN     : 1234
+PAD     : FFFFFFFFFF
+Format  : Format 0 (ISO-0)
+------------------------------------
+Formatted PIN block  : 041215FEDCBA9876
+Formatted PAN block  : 0000210123456789
+
+`
+		require.Equal(t, expectedOutput, out.String())
 	})
 
 	t.Run("bad pin length", func(t *testing.T) {
@@ -66,6 +94,33 @@ func TestISO0_Decode(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, "1234", pin)
+	})
+
+	t.Run("decode logs", func(t *testing.T) {
+		account := "5432101234567891"
+		pinBlock := "041215FEDCBA9876"
+
+		// test Decode
+		iso0 := formats.NewISO0()
+
+		out := bytes.NewBuffer([]byte{})
+		iso0.SetDebugWriter(out)
+
+		pin, err := iso0.Decode(pinBlock, account)
+		require.NoError(t, err)
+		require.Equal(t, "1234", pin)
+
+		expectedOutput := `PIN block decode operation finished
+************************************
+Formatted PAN block  : 0000210123456789
+Formatted PIN block  : 041234FFFFFFFFFF
+PAD                  : FFFFFFFFFF
+Format               : Format 0 (ISO-0)
+------------------------------------
+Decoded PIN  : 1234
+
+`
+		require.Equal(t, expectedOutput, out.String())
 	})
 
 	t.Run("bad pin block length", func(t *testing.T) {
