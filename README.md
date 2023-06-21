@@ -8,8 +8,12 @@ A block of data used to encapsulate a PIN during processing. The PIN block forma
 
 # todo 
 
-- [x] PIN block ISO-0 (ISO 9564-1, ANSI X9.8, VISA-1, ECI-0)
-- [x] PIN block ISO-4 (ISO 9564-1: 2017)
+- [x] PIN block ISO-0 (ISO 9564-1 Format 0, ANSI X9.8, VISA-1, ECI-0, Format 0)
+- [x] PIN block ISO-1 (ISO 9564-1:2003 Format 1, ECI-4)
+- [ ] PIN block ISO-2 (ISO 9564-3: 2003 Format 2)
+- [ ] PIN block ISO-3 (ISO 9564-1: 2002 Format 3)
+- [x] PIN block ISO-4 (ISO 9564-1: 2017 Format 4)
+- [ ] PIN block Docutel 2 (VISA-2)
 
 
 # further reading 
@@ -40,7 +44,7 @@ A block of data used to encapsulate a PIN during processing. The PIN block forma
  channel | info
  ------- | -------
 Twitter [@moov](https://twitter.com/moov)	| You can follow Moov.io's Twitter feed to get updates on our project(s). You can also tweet us questions or just share blogs or stories.
-[GitHub Issue](https://github.com/moov-io/iso4217/issues/new) | If you are able to reproduce a problem please open a GitHub Issue under the specific project that caused the error.
+[GitHub Issue](https://github.com/moov-io/pinblock/issues/new) | If you are able to reproduce a problem please open a GitHub Issue under the specific project that caused the error.
 [moov-io slack](https://slack.moov.io/) | Join our slack channel to have an interactive discussion about the development of the project.
 
 ## Supported and tested platforms
