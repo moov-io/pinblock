@@ -1,8 +1,6 @@
 package formats
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"strings"
@@ -28,22 +26,12 @@ func (i *ISO1) format() string {
 
 // Padding returns padding pattern
 func (i *ISO1) padding(pin string) (string, error) {
-
 	if len(pin) < 4 {
 		return "", fmt.Errorf("pin length must be between 4 and 12 digits")
 	}
 
 	length := 14 - len(pin)
-	if i.Filler != "" {
-		return strings.Repeat(i.Filler, length), nil
-	} else {
-		randomBytes := make([]byte, 7)
-		_, err := rand.Read(randomBytes)
-		if err != nil {
-			return "", fmt.Errorf("generating random bytes: %w", err)
-		}
-		return hex.EncodeToString(randomBytes)[:length], nil
-	}
+	return strings.Repeat(i.Filler, length), nil
 }
 
 // SetDebugWriter will set writer for getting output message of encoding and decoding logic
@@ -56,15 +44,17 @@ func (i *ISO1) SetDebugWriter(writer io.Writer) {
 //	The `ISO-1` PIN block format is equivalent to an `ECI-4` PIN block format
 //	and is recommended for usage where no PAN data is available.
 func (i *ISO1) Encode(pin string) (string, error) {
-
-	pad, err := i.padding(pin)
-	if err != nil {
-		return "", err
-	}
+	isTruncated := false
 
 	// A PIN that is longer than 12 digits is truncated on the right.
 	if len(pin) > 12 {
 		pin = pin[:12]
+		isTruncated = true
+	}
+
+	pad, err := i.padding(pin)
+	if err != nil {
+		return "", err
 	}
 
 	// A PIN that is longer than 12 digits is truncated on the right.
@@ -75,6 +65,9 @@ func (i *ISO1) Encode(pin string) (string, error) {
 	if i.debugWriter != nil {
 		tw := i.debugWriter
 		fmt.Fprintf(tw, "PIN block encode operation finished\n")
+		if isTruncated {
+			fmt.Fprintf(tw, "The pin is truncated on the right as 12 digits\n")
+		}
 		fmt.Fprintf(tw, "%s\n", strings.Repeat("*", 36))
 		fmt.Fprintf(tw, "PIN\t: %s\n", pin)
 		if pad == "" {
@@ -92,7 +85,6 @@ func (i *ISO1) Encode(pin string) (string, error) {
 }
 
 func (i *ISO1) Decode(pinBlock string) (string, error) {
-
 	if len(pinBlock) != 16 {
 		return "", fmt.Errorf("pin block must be 16 characters")
 	}
