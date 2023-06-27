@@ -171,7 +171,7 @@ func randomHexLetters(max int) string {
 		panic(err)
 	}
 	for i := 0; i < len(b); i++ {
-		b[i] = digitsTable[int(b[i])%len(digitsTable)]
+		b[i] = lettersTable[int(b[i])%len(lettersTable)]
 	}
 	return string(b)
 }
