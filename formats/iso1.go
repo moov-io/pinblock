@@ -1,26 +1,53 @@
 package formats
 
 import (
+	"crypto/rand"
 	"fmt"
 	"io"
 	"strings"
 	"text/tabwriter"
 )
 
+const (
+	ISO1Version = "1"
+	ISO2Version = "2"
+)
+
 type ISO1 struct {
 	Filler string
 
+	version     string
 	debugWriter io.Writer
 }
 
 func NewISO1() *ISO1 {
 	return &ISO1{
-		Filler: "F", // default to ISO1's Filler
+		version: ISO1Version,
 	}
+}
+
+// The ISO-2 PIN Block format is used for smart card offline authentication.
+// It is similar to an ISO-1 PIN Block in that there is no PAN to associate with the PIN.
+// It differs in that the fill is 0xF instead of random digits
+func NewISO2() *ISO1 {
+	return &ISO1{
+		Filler:  "F", // default to ISO1's Filler
+		version: ISO2Version,
+	}
+}
+
+func (i *ISO1) getVersion() string {
+	if i.version == ISO1Version || i.version == ISO2Version {
+		return i.version
+	}
+	return ISO1Version
 }
 
 // Format returns iso type
 func (i *ISO1) format() string {
+	if i.version == ISO2Version {
+		return "Format 2 (ISO-2)"
+	}
 	return "Format 1 (ISO-1)"
 }
 
@@ -31,6 +58,13 @@ func (i *ISO1) padding(pin string) (string, error) {
 	}
 
 	length := 14 - len(pin)
+	if length < 1 {
+		return "", nil
+	}
+
+	if i.Filler == "" {
+		return randomDigits(length), nil
+	}
 	return strings.Repeat(i.Filler, length), nil
 }
 
@@ -59,7 +93,7 @@ func (i *ISO1) Encode(pin string) (string, error) {
 
 	// A PIN that is longer than 12 digits is truncated on the right.
 	// The first nibble (which identifies the block format) has the value 1.
-	pinBlock := fmt.Sprintf("1%X%s%s", len(pin), pin, pad)
+	pinBlock := fmt.Sprintf("%s%X%s%s", i.getVersion(), len(pin), pin, pad)
 
 	// write encode information
 	if i.debugWriter != nil {
@@ -92,7 +126,7 @@ func (i *ISO1) Decode(pinBlock string) (string, error) {
 	var pinLength int
 	var decodedBlock string
 
-	_, err := fmt.Sscanf(pinBlock, "1%01X%s", &pinLength, &decodedBlock)
+	_, err := fmt.Sscanf(pinBlock, i.getVersion()+"%01X%s", &pinLength, &decodedBlock)
 	if err != nil {
 		return "", fmt.Errorf("unable to parse pin block")
 	}
@@ -124,3 +158,17 @@ func (i *ISO1) Decode(pinBlock string) (string, error) {
 
 	return decodedBlock[:pinLength], nil
 }
+
+func randomDigits(max int) string {
+	b := make([]byte, max)
+	n, err := io.ReadAtLeast(rand.Reader, b, max)
+	if n != max {
+		panic(err)
+	}
+	for i := 0; i < len(b); i++ {
+		b[i] = digitsTable[int(b[i])%len(digitsTable)]
+	}
+	return string(b)
+}
+
+var digitsTable = [...]byte{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0'}
