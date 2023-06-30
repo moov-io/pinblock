@@ -8,15 +8,6 @@ import (
 	"text/tabwriter"
 )
 
-const (
-	ISO0Version = "0"
-	ISO3Version = "3"
-)
-
-var (
-	digitsTable = [...]byte{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0'}
-)
-
 type iso0Object struct {
 	Filler string
 

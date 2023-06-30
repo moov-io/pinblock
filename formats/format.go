@@ -2,6 +2,13 @@ package formats
 
 import "io"
 
+const (
+	ISO0Version = "0"
+	ISO1Version = "1"
+	ISO2Version = "2"
+	ISO3Version = "3"
+)
+
 type ISO0 interface {
 	SetDebugWriter(writer io.Writer)
 	Encode(pin, account string) (string, error)

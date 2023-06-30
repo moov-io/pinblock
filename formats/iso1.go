@@ -7,11 +7,6 @@ import (
 	"text/tabwriter"
 )
 
-const (
-	ISO1Version = "1"
-	ISO2Version = "2"
-)
-
 type iso1Object struct {
 	Filler string
 
