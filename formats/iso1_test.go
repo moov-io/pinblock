@@ -155,3 +155,27 @@ Decoded PIN  : 123456789012
 		require.Equal(t, expectedOutput, out.String())
 	})
 }
+
+func TestECI4(t *testing.T) {
+	t.Run("ECI4 logs", func(t *testing.T) {
+		iso1 := formats.NewECI4()
+		out := bytes.NewBuffer([]byte{})
+		iso1.SetDebugWriter(out)
+
+		pin, err := iso1.Decode("1C123456789012FF")
+
+		require.NoError(t, err)
+		require.Equal(t, "123456789012", pin)
+
+		expectedOutput := `PIN block decode operation finished
+************************************
+Formatted PIN block  : 123456789012FF
+PAD                  : FF
+Format               : ECI-4
+------------------------------------
+Decoded PIN  : 123456789012
+
+`
+		require.Equal(t, expectedOutput, out.String())
+	})
+}

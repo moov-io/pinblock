@@ -286,3 +286,61 @@ Formatted PIN block  : 341234FFFFFFFFFF`
 		require.Error(t, err)
 	})
 }
+
+func TestANSIX98(t *testing.T) {
+	t.Run("ANSI X9.8 logs", func(t *testing.T) {
+		pin := "1234"
+		account := "5432101234567891"
+
+		iso0 := formats.NewANSIX98()
+
+		out := bytes.NewBuffer([]byte{})
+		iso0.SetDebugWriter(out)
+
+		pinBlock, err := iso0.Encode(pin, account)
+		require.NoError(t, err)
+		require.Equal(t, "041215FEDCBA9876", pinBlock)
+
+		expectedOutput := `PIN block encode operation finished
+************************************
+PAN     : 5432101234567891
+PIN     : 1234
+PAD     : FFFFFFFFFF
+Format  : ANSI X9.8
+------------------------------------
+Formatted PIN block  : 041215FEDCBA9876
+Formatted PAN block  : 0000210123456789
+
+`
+		require.Equal(t, expectedOutput, out.String())
+	})
+}
+
+func TestECI1(t *testing.T) {
+	t.Run("ECI-1 logs", func(t *testing.T) {
+		pin := "1234"
+		account := "5432101234567891"
+
+		iso0 := formats.NewECI1()
+
+		out := bytes.NewBuffer([]byte{})
+		iso0.SetDebugWriter(out)
+
+		pinBlock, err := iso0.Encode(pin, account)
+		require.NoError(t, err)
+		require.Equal(t, "041215FEDCBA9876", pinBlock)
+
+		expectedOutput := `PIN block encode operation finished
+************************************
+PAN     : 5432101234567891
+PIN     : 1234
+PAD     : FFFFFFFFFF
+Format  : ECI-1
+------------------------------------
+Formatted PIN block  : 041215FEDCBA9876
+Formatted PAN block  : 0000210123456789
+
+`
+		require.Equal(t, expectedOutput, out.String())
+	})
+}

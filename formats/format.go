@@ -53,8 +53,9 @@ func NewISO2() ISO1 {
 }
 
 // ISO 9564-1: 2002 Format 3.
-// Format 3 is the same as format 0, except that the “fill” digits are random values from 10 to 15,
-// and the first nibble (which identifies the block format) has the value 3.
+//
+//	Format 3 is the same as format 0, except that the “fill” digits are random values from 10 to 15,
+//	and the first nibble (which identifies the block format) has the value 3.
 func NewISO3() ISO0 {
 	return &iso0Object{
 		format:  "Format 3 (ISO-3)",
@@ -67,5 +68,48 @@ func NewISO4(cipher Cipher) ISO0 {
 		Filler: "A", // default to ISO-4
 		format: "Format 4 (ISO-4)",
 		cipher: cipher,
+	}
+}
+
+// ANSI X9.8:
+//
+//	Same as ISO-0.
+func NewANSIX98() ISO0 {
+	return &iso0Object{
+		Filler:  "F", // default to ISO0's Filler
+		format:  "ANSI X9.8",
+		version: ISO0Version,
+	}
+}
+
+// OEM-1 / Diebold / Docutel / NCR
+//
+//	The OEM-1 PIN block format is equivalent to the PIN block formats that Diebold, Docutel, and NCR define.
+//	The OEM-1 PIN block format supports a PIN from 4 to 12 digits in length.
+//	A PIN that is longer than 12 digits is truncated on the right.
+func NewOEM1() ISO1 {
+	return &oemObject{
+		format: "Diebold, Docutel, NCR",
+	}
+}
+
+// ECI-1
+//
+//	Same as ISO-0.
+func NewECI1() ISO0 {
+	return &iso0Object{
+		Filler:  "F", // default to ISO0's Filler
+		format:  "ECI-1",
+		version: ISO0Version,
+	}
+}
+
+// ECI-4
+//
+//	Same as ISO-1.
+func NewECI4() ISO1 {
+	return &iso1Object{
+		version: ISO1Version,
+		format:  "ECI-4",
 	}
 }
