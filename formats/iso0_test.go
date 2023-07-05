@@ -344,3 +344,32 @@ Formatted PAN block  : 0000210123456789
 		require.Equal(t, expectedOutput, out.String())
 	})
 }
+
+func TestVISA1(t *testing.T) {
+	t.Run("VISA-1 logs", func(t *testing.T) {
+		pin := "1234"
+		account := "5432101234567891"
+
+		iso0 := formats.NewVISA1()
+
+		out := bytes.NewBuffer([]byte{})
+		iso0.SetDebugWriter(out)
+
+		pinBlock, err := iso0.Encode(pin, account)
+		require.NoError(t, err)
+		require.Equal(t, "041215FEDCBA9876", pinBlock)
+
+		expectedOutput := `PIN block encode operation finished
+************************************
+PAN     : 5432101234567891
+PIN     : 1234
+PAD     : FFFFFFFFFF
+Format  : VISA-1
+------------------------------------
+Formatted PIN block  : 041215FEDCBA9876
+Formatted PAN block  : 0000210123456789
+
+`
+		require.Equal(t, expectedOutput, out.String())
+	})
+}

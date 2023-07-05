@@ -7,47 +7,61 @@ import (
 	"text/tabwriter"
 )
 
-type oemObject struct {
+type eciObject struct {
 	format      string
+	version     string
 	debugWriter io.Writer
 }
 
+func (i *eciObject) getVersion() string {
+	if i.version == eci2Version || i.version == eci3Version || i.version == visa2Version {
+		return i.version
+	}
+	return eci2Version
+}
+
 // Padding returns padding pattern
-func (i *oemObject) padding(pin string) (string, error) {
+func (i *eciObject) padding(pin string) (string, error) {
 	if len(pin) < 4 {
 		return "", fmt.Errorf("pin length must be between 4 and 12 digits")
 	}
 
 	length := 16 - len(pin)
-	if length < 1 {
-		return "", nil
+	t := hexLetters
+	if i.getVersion() == visa2Version {
+		t = hexDigits
 	}
-
-	var exclusiveLetter byte
-	for _, l := range hexLetters {
-		if !strings.Contains(pin, string(l)) {
-			exclusiveLetter = l
-			break
-		}
-	}
-
-	filler := string(exclusiveLetter)
-	return strings.Repeat(filler, length), nil
+	return randomLetters(length, t)
 }
 
 // SetDebugWriter will set writer for getting output message of encoding and decoding logic
-func (i *oemObject) SetDebugWriter(writer io.Writer) {
+func (i *eciObject) SetDebugWriter(writer io.Writer) {
 	i.debugWriter = tabwriter.NewWriter(writer, 0, 0, 2, ' ', 0)
 }
 
 // Encode returns the OEM-1 PIN block for the given PIN
-func (i *oemObject) Encode(pin string) (string, error) {
+func (i *eciObject) Encode(pin string) (string, error) {
 	isTruncated := false
 
-	// A PIN that is longer than 12 digits is truncated on the right.
-	if len(pin) > 12 {
-		pin = pin[:12]
-		isTruncated = true
+	if len(pin) < 4 || len(pin) > 12 {
+		return "", fmt.Errorf("pin length must be between 4 and 12 digits")
+	}
+
+	var rawPin string
+	if i.getVersion() == eci2Version {
+		if len(pin) > 4 {
+			pin = pin[:4]
+			isTruncated = true
+		}
+		rawPin = pin
+	} else {
+		if len(pin) > 6 {
+			pin = pin[:6]
+			isTruncated = true
+		}
+		rawPin = pin
+		pin = fmt.Sprintf("%d%s", len(pin), pin)
+		pin = pin + strings.Repeat("0", 7-len(pin))
 	}
 
 	pad, err := i.padding(pin)
@@ -67,7 +81,7 @@ func (i *oemObject) Encode(pin string) (string, error) {
 			fmt.Fprintf(tw, "The pin is truncated on the right as 12 digits\n")
 		}
 		fmt.Fprintf(tw, "%s\n", strings.Repeat("*", 36))
-		fmt.Fprintf(tw, "PIN\t: %s\n", pin)
+		fmt.Fprintf(tw, "PIN\t: %s\n", rawPin)
 		if pad == "" {
 			fmt.Fprintf(tw, "PAD\t: N/A\n")
 		} else {
@@ -82,13 +96,23 @@ func (i *oemObject) Encode(pin string) (string, error) {
 	return strings.ToUpper(pinBlock), nil
 }
 
-func (i *oemObject) Decode(pinBlock string) (string, error) {
+func (i *eciObject) Decode(pinBlock string) (string, error) {
 	if len(pinBlock) != 16 {
 		return "", fmt.Errorf("pin block must be 16 characters")
 	}
 
-	// getting pin length
-	pinLength := len(strings.ReplaceAll(pinBlock, pinBlock[len(pinBlock)-1:], ""))
+	pinLength := 4
+	if i.getVersion() == eci2Version {
+		pinLength = 4
+	} else {
+		_, err := fmt.Sscanf(pinBlock, "%01d%s", &pinLength, &pinBlock)
+		if err != nil {
+			return "", fmt.Errorf("unable to parse pin block")
+		}
+		if pinLength > 6 || pinLength < 4 {
+			return "", fmt.Errorf("unable to parse pin block")
+		}
+	}
 
 	// write decode information
 	if i.debugWriter != nil {

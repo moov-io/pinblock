@@ -17,10 +17,10 @@ type iso0Object struct {
 }
 
 func (i *iso0Object) getVersion() string {
-	if i.version == ISO0Version || i.version == ISO3Version {
+	if i.version == iso0Version || i.version == iso3Version {
 		return i.version
 	}
-	return ISO0Version
+	return iso0Version
 }
 
 // Padding returns padding pattern
@@ -34,7 +34,7 @@ func (i *iso0Object) padding(pin string) (string, error) {
 	if i.Filler == "" {
 		// ISO3
 		//  fill is random values from 10 to 15,
-		return randomLetters(length, []byte{'A', 'B', 'C', 'D', 'E', 'F'})
+		return randomLetters(length, hexCharacters)
 	}
 	return strings.Repeat(i.Filler, length), nil
 }
