@@ -10,32 +10,16 @@ import (
 	"text/tabwriter"
 )
 
-type ISO4 struct {
+type iso4Object struct {
 	Filler string
 
 	cipher      Cipher
+	format      string
 	debugWriter io.Writer
 }
 
-type Cipher interface {
-	Encrypt(plainText []byte) ([]byte, error)
-	Decrypt(cipherText []byte) ([]byte, error)
-}
-
-func NewISO4(cipher Cipher) *ISO4 {
-	return &ISO4{
-		Filler: "A", // default to ISO-4
-		cipher: cipher,
-	}
-}
-
-// Format returns iso type
-func (i *ISO4) format() string {
-	return "Format 4 (ISO-4)"
-}
-
 // Padding returns padding pattern
-func (i *ISO4) padding(pin string) (string, error) {
+func (i *iso4Object) padding(pin string) (string, error) {
 
 	// both pinBlock and panBlock are 16 bytes (128 bits)
 	if len(pin) < 4 || len(pin) > 12 {
@@ -46,12 +30,12 @@ func (i *ISO4) padding(pin string) (string, error) {
 }
 
 // SetDebugWriter will set writer for getting output message of encoding and decoding logic
-func (i *ISO4) SetDebugWriter(writer io.Writer) {
+func (i *iso4Object) SetDebugWriter(writer io.Writer) {
 	i.debugWriter = tabwriter.NewWriter(writer, 0, 0, 2, ' ', 0)
 }
 
 // Encode returns an ISO-4 formatted and encrypted PIN block
-func (i *ISO4) Encode(pin, account string) (string, error) {
+func (i *iso4Object) Encode(pin, account string) (string, error) {
 
 	pad, err := i.padding(pin)
 	if err != nil {
@@ -110,12 +94,12 @@ func (i *ISO4) Encode(pin, account string) (string, error) {
 		fmt.Fprintf(tw, "%s\n", strings.Repeat("*", 36))
 		fmt.Fprintf(tw, "PAN\t: %s\n", account)
 		fmt.Fprintf(tw, "PIN\t: %s\n", pin)
-		if pad, _ := i.padding(pin); len(pad) == 0 {
+		if len(pad) == 0 {
 			fmt.Fprintf(tw, "PAD\t: N/A\n")
 		} else {
 			fmt.Fprintf(tw, "PAD\t: %s\n", pad)
 		}
-		fmt.Fprintf(tw, "Format\t: %s\n", i.format())
+		fmt.Fprintf(tw, "Format\t: %s\n", i.format)
 		fmt.Fprintf(tw, "%s\n", strings.Repeat("-", 36))
 		fmt.Fprintf(tw, "PAN block\t: %s\n", strings.ToUpper(panBlock))
 		fmt.Fprintf(tw, "PIN block\t: %s\n", strings.ToUpper(pinBlock))
@@ -127,7 +111,7 @@ func (i *ISO4) Encode(pin, account string) (string, error) {
 }
 
 // Decode returns the PIN from an ISO-4 encrypted PIN block
-func (i *ISO4) Decode(pinBlock, account string) (string, error) {
+func (i *iso4Object) Decode(pinBlock, account string) (string, error) {
 	if len(pinBlock) != 32 {
 		return "", fmt.Errorf("pinBlock must be 32 hex characters (16 bytes)")
 	}
@@ -187,7 +171,7 @@ func (i *ISO4) Decode(pinBlock, account string) (string, error) {
 		} else {
 			fmt.Fprintf(tw, "PAD\t: %s\n", pad)
 		}
-		fmt.Fprintf(tw, "Format\t: %s\n", i.format())
+		fmt.Fprintf(tw, "Format\t: %s\n", i.format)
 		fmt.Fprintf(tw, "%s\n", strings.Repeat("-", 36))
 		fmt.Fprintf(tw, "Decoded PIN\t: %s\n", pin)
 		tw.Write([]byte("\n"))

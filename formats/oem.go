@@ -7,50 +7,41 @@ import (
 	"text/tabwriter"
 )
 
-type iso1Object struct {
-	Filler string
-
-	version     string
+type oemObject struct {
 	format      string
 	debugWriter io.Writer
 }
 
-func (i *iso1Object) getVersion() string {
-	if i.version == iso1Version || i.version == iso2Version {
-		return i.version
-	}
-	return iso1Version
-}
-
 // Padding returns padding pattern
-func (i *iso1Object) padding(pin string) (string, error) {
+func (i *oemObject) padding(pin string) (string, error) {
 	if len(pin) < 4 {
 		return "", fmt.Errorf("pin length must be between 4 and 12 digits")
 	}
 
-	length := 14 - len(pin)
+	length := 16 - len(pin)
 	if length < 1 {
 		return "", nil
 	}
 
-	if i.Filler == "" {
-		// ISO2
-		//  fill is 0xF instead of random digits
-		return randomLetters(length, hexDigits)
+	var exclusiveLetter byte
+	for _, l := range hexLetters {
+		if !strings.Contains(pin, string(l)) {
+			exclusiveLetter = l
+			break
+		}
 	}
-	return strings.Repeat(i.Filler, length), nil
+
+	filler := string(exclusiveLetter)
+	return strings.Repeat(filler, length), nil
 }
 
 // SetDebugWriter will set writer for getting output message of encoding and decoding logic
-func (i *iso1Object) SetDebugWriter(writer io.Writer) {
+func (i *oemObject) SetDebugWriter(writer io.Writer) {
 	i.debugWriter = tabwriter.NewWriter(writer, 0, 0, 2, ' ', 0)
 }
 
-// Encode returns the ISO1 PIN block for the given PIN
-//
-//	The `ISO-1` PIN block format is equivalent to an `ECI-4` PIN block format
-//	and is recommended for usage where no PAN data is available.
-func (i *iso1Object) Encode(pin string) (string, error) {
+// Encode returns the OEM-1 PIN block for the given PIN
+func (i *oemObject) Encode(pin string) (string, error) {
 	isTruncated := false
 
 	// A PIN that is longer than 12 digits is truncated on the right.
@@ -64,9 +55,9 @@ func (i *iso1Object) Encode(pin string) (string, error) {
 		return "", err
 	}
 
-	// A PIN that is longer than 12 digits is truncated on the right.
-	// The first nibble (which identifies the block format) has the value 1.
-	pinBlock := fmt.Sprintf("%s%X%s%s", i.getVersion(), len(pin), pin, pad)
+	// Pad value has a 4-bit value from X’0′ to X’F’ and must be different from any PIN digit.
+	// The number of pad values for this format is in the range from 4 to 12, and all the pad values must have the same value.
+	pinBlock := fmt.Sprintf("%s%s", pin, pad)
 
 	// write encode information
 	if i.debugWriter != nil {
@@ -91,32 +82,23 @@ func (i *iso1Object) Encode(pin string) (string, error) {
 	return strings.ToUpper(pinBlock), nil
 }
 
-func (i *iso1Object) Decode(pinBlock string) (string, error) {
+func (i *oemObject) Decode(pinBlock string) (string, error) {
 	if len(pinBlock) != 16 {
 		return "", fmt.Errorf("pin block must be 16 characters")
 	}
 
-	var pinLength int
-	var decodedBlock string
-
-	_, err := fmt.Sscanf(pinBlock, i.getVersion()+"%01X%s", &pinLength, &decodedBlock)
-	if err != nil {
-		return "", fmt.Errorf("unable to parse pin block")
-	}
-
-	if len(decodedBlock) < pinLength {
-		return "", fmt.Errorf("parsed pin length is incorrect")
-	}
+	// getting pin length
+	pinLength := len(strings.ReplaceAll(pinBlock, pinBlock[len(pinBlock)-1:], ""))
 
 	// write decode information
 	if i.debugWriter != nil {
 		tw := i.debugWriter
 		fmt.Fprintf(tw, "PIN block decode operation finished\n")
 		fmt.Fprintf(tw, "%s\n", strings.Repeat("*", 36))
-		fmt.Fprintf(tw, "Formatted PIN block\t: %s\n", strings.ToUpper(decodedBlock))
+		fmt.Fprintf(tw, "Formatted PIN block\t: %s\n", strings.ToUpper(pinBlock))
 		var pad string
-		if len(decodedBlock) > pinLength {
-			pad = decodedBlock[pinLength:]
+		if len(pinBlock) > pinLength {
+			pad = pinBlock[pinLength:]
 		}
 		if pad == "" {
 			fmt.Fprintf(tw, "PAD\t: N/A\n")
@@ -125,9 +107,9 @@ func (i *iso1Object) Decode(pinBlock string) (string, error) {
 		}
 		fmt.Fprintf(tw, "Format\t: %s\n", i.format)
 		fmt.Fprintf(tw, "%s\n", strings.Repeat("-", 36))
-		fmt.Fprintf(tw, "Decoded PIN\t: %s\n", decodedBlock[:pinLength])
+		fmt.Fprintf(tw, "Decoded PIN\t: %s\n", pinBlock[:pinLength])
 		tw.Write([]byte("\n"))
 	}
 
-	return decodedBlock[:pinLength], nil
+	return pinBlock[:pinLength], nil
 }
