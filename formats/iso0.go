@@ -1,7 +1,6 @@
 package formats
 
 import (
-	"crypto/rand"
 	"fmt"
 	"io"
 	"strings"
@@ -136,16 +135,4 @@ func (i *iso0Object) Decode(pinBlock, account string) (string, error) {
 	}
 
 	return pin, nil
-}
-
-func randomLetters(max int, table []byte) (string, error) {
-	b := make([]byte, max)
-	_, err := io.ReadAtLeast(rand.Reader, b, max)
-	if err != nil {
-		return "", io.ErrShortBuffer
-	}
-	for i := 0; i < len(b); i++ {
-		b[i] = table[int(b[i])%len(table)]
-	}
-	return string(b), nil
 }
