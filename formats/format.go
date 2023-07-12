@@ -163,3 +163,20 @@ func NewVISA2() FormatB {
 		format:  "VISA-2",
 	}
 }
+
+// VISA-3
+func NewVISA3() FormatB {
+	return &visa3Object{
+		format: "VISA-3",
+	}
+}
+
+// VISA-4
+func NewVISA4() FormatA {
+	return &iso0Object{
+		Filler: "F", // default to ISO0's Filler
+
+		version: iso0Version,
+		format:  "VISA-4",
+	}
+}
