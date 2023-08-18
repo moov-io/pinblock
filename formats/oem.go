@@ -41,7 +41,7 @@ func (i *oemObject) SetDebugWriter(writer io.Writer) {
 }
 
 // Encode returns the OEM-1 PIN block for the given PIN
-func (i *oemObject) Encode(pin string) (string, error) {
+func (i *oemObject) Encode(pin, account string) (string, error) {
 	isTruncated := false
 
 	// A PIN that is longer than 12 digits is truncated on the right.
@@ -82,7 +82,7 @@ func (i *oemObject) Encode(pin string) (string, error) {
 	return strings.ToUpper(pinBlock), nil
 }
 
-func (i *oemObject) Decode(pinBlock string) (string, error) {
+func (i *oemObject) Decode(pinBlock, account string) (string, error) {
 	if len(pinBlock) != 16 {
 		return "", fmt.Errorf("pin block must be 16 characters")
 	}

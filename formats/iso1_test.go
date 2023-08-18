@@ -13,13 +13,13 @@ func TestISO1(t *testing.T) {
 		pin := "1234"
 
 		iso1 := formats.NewISO1()
-		pinBlock, err := iso1.Encode(pin)
+		pinBlock, err := iso1.Encode(pin, "")
 
 		require.NoError(t, err)
 		require.Contains(t, pinBlock, "141234")
 
 		pin = "123456789012"
-		pinBlock, err = iso1.Encode(pin)
+		pinBlock, err = iso1.Encode(pin, "")
 
 		require.NoError(t, err)
 		require.Contains(t, pinBlock, "1C123456789012")
@@ -27,12 +27,12 @@ func TestISO1(t *testing.T) {
 
 	t.Run("Decode", func(t *testing.T) {
 		iso1 := formats.NewISO1()
-		pin, err := iso1.Decode("141234FFFFFFFFFF")
+		pin, err := iso1.Decode("141234FFFFFFFFFF", "")
 
 		require.NoError(t, err)
 		require.Equal(t, "1234", pin)
 
-		pin, err = iso1.Decode("1C123456789012FF")
+		pin, err = iso1.Decode("1C123456789012FF", "")
 
 		require.NoError(t, err)
 		require.Equal(t, "123456789012", pin)
@@ -45,7 +45,7 @@ func TestISO1(t *testing.T) {
 		iso1.SetDebugWriter(out)
 
 		pin := "1234"
-		pinBlock, err := iso1.Encode(pin)
+		pinBlock, err := iso1.Encode(pin, "")
 
 		require.NoError(t, err)
 		require.Contains(t, pinBlock, "141234")
@@ -61,7 +61,7 @@ PIN     : 1234`
 		out := bytes.NewBuffer([]byte{})
 		iso1.SetDebugWriter(out)
 
-		pin, err := iso1.Decode("1C123456789012FF")
+		pin, err := iso1.Decode("1C123456789012FF", "")
 
 		require.NoError(t, err)
 		require.Equal(t, "123456789012", pin)
@@ -84,13 +84,13 @@ func TestISO2(t *testing.T) {
 		pin := "1234"
 
 		iso2 := formats.NewISO2()
-		pinBlock, err := iso2.Encode(pin)
+		pinBlock, err := iso2.Encode(pin, "")
 
 		require.NoError(t, err)
 		require.Equal(t, "241234FFFFFFFFFF", pinBlock)
 
 		pin = "123456789012"
-		pinBlock, err = iso2.Encode(pin)
+		pinBlock, err = iso2.Encode(pin, "")
 
 		require.NoError(t, err)
 		require.Equal(t, "2C123456789012FF", pinBlock)
@@ -98,12 +98,12 @@ func TestISO2(t *testing.T) {
 
 	t.Run("Decode", func(t *testing.T) {
 		iso2 := formats.NewISO2()
-		pin, err := iso2.Decode("241234FFFFFFFFFF")
+		pin, err := iso2.Decode("241234FFFFFFFFFF", "")
 
 		require.NoError(t, err)
 		require.Equal(t, "1234", pin)
 
-		pin, err = iso2.Decode("2C123456789012FF")
+		pin, err = iso2.Decode("2C123456789012FF", "")
 
 		require.NoError(t, err)
 		require.Equal(t, "123456789012", pin)
@@ -116,7 +116,7 @@ func TestISO2(t *testing.T) {
 		iso2.SetDebugWriter(out)
 
 		pin := "1234"
-		pinBlock, err := iso2.Encode(pin)
+		pinBlock, err := iso2.Encode(pin, "")
 
 		require.NoError(t, err)
 		require.Equal(t, "241234FFFFFFFFFF", pinBlock)
@@ -138,7 +138,7 @@ Formatted PIN block  : 241234FFFFFFFFFF
 		out := bytes.NewBuffer([]byte{})
 		iso2.SetDebugWriter(out)
 
-		pin, err := iso2.Decode("2C123456789012FF")
+		pin, err := iso2.Decode("2C123456789012FF", "")
 
 		require.NoError(t, err)
 		require.Equal(t, "123456789012", pin)
@@ -162,7 +162,7 @@ func TestECI4(t *testing.T) {
 		out := bytes.NewBuffer([]byte{})
 		iso1.SetDebugWriter(out)
 
-		pin, err := iso1.Decode("1C123456789012FF")
+		pin, err := iso1.Decode("1C123456789012FF", "")
 
 		require.NoError(t, err)
 		require.Equal(t, "123456789012", pin)

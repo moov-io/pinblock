@@ -34,7 +34,7 @@ func (i *visa3Object) SetDebugWriter(writer io.Writer) {
 }
 
 // Encode returns the OEM-1 PIN block for the given PIN
-func (i *visa3Object) Encode(pin string) (string, error) {
+func (i *visa3Object) Encode(pin, account string) (string, error) {
 	isTruncated := false
 
 	// A PIN that is longer than 12 digits is truncated on the right.
@@ -75,7 +75,7 @@ func (i *visa3Object) Encode(pin string) (string, error) {
 	return strings.ToUpper(pinBlock), nil
 }
 
-func (i *visa3Object) Decode(pinBlock string) (string, error) {
+func (i *visa3Object) Decode(pinBlock, account string) (string, error) {
 	if len(pinBlock) != 16 {
 		return "", fmt.Errorf("pin block must be 16 characters")
 	}

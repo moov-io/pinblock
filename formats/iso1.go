@@ -50,7 +50,7 @@ func (i *iso1Object) SetDebugWriter(writer io.Writer) {
 //
 //	The `ISO-1` PIN block format is equivalent to an `ECI-4` PIN block format
 //	and is recommended for usage where no PAN data is available.
-func (i *iso1Object) Encode(pin string) (string, error) {
+func (i *iso1Object) Encode(pin, account string) (string, error) {
 	isTruncated := false
 
 	// A PIN that is longer than 12 digits is truncated on the right.
@@ -91,7 +91,7 @@ func (i *iso1Object) Encode(pin string) (string, error) {
 	return strings.ToUpper(pinBlock), nil
 }
 
-func (i *iso1Object) Decode(pinBlock string) (string, error) {
+func (i *iso1Object) Decode(pinBlock, account string) (string, error) {
 	if len(pinBlock) != 16 {
 		return "", fmt.Errorf("pin block must be 16 characters")
 	}

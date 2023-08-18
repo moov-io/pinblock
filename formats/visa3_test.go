@@ -13,13 +13,13 @@ func TestVISA3(t *testing.T) {
 		pin := "1234"
 
 		visa3 := formats.NewVISA3()
-		pinBlock, err := visa3.Encode(pin)
+		pinBlock, err := visa3.Encode(pin, "")
 
 		require.NoError(t, err)
 		require.Contains(t, pinBlock, "1234F")
 
 		pin = "123456789012"
-		pinBlock, err = visa3.Encode(pin)
+		pinBlock, err = visa3.Encode(pin, "")
 
 		require.NoError(t, err)
 		require.Contains(t, pinBlock, "123456789012F")
@@ -27,12 +27,12 @@ func TestVISA3(t *testing.T) {
 
 	t.Run("Decode", func(t *testing.T) {
 		visa3 := formats.NewVISA3()
-		pin, err := visa3.Decode("1234F55555555555")
+		pin, err := visa3.Decode("1234F55555555555", "")
 
 		require.NoError(t, err)
 		require.Equal(t, "1234", pin)
 
-		pin, err = visa3.Decode("123456789012FAAA")
+		pin, err = visa3.Decode("123456789012FAAA", "")
 
 		require.NoError(t, err)
 		require.Equal(t, "123456789012", pin)
@@ -45,7 +45,7 @@ func TestVISA3(t *testing.T) {
 		visa3.SetDebugWriter(out)
 
 		pin := "1234"
-		pinBlock, err := visa3.Encode(pin)
+		pinBlock, err := visa3.Encode(pin, "")
 
 		require.NoError(t, err)
 		require.Contains(t, pinBlock, "1234F")
@@ -62,7 +62,7 @@ PAD     : `
 		out := bytes.NewBuffer([]byte{})
 		visa3.SetDebugWriter(out)
 
-		pin, err := visa3.Decode("123456789012FAAA")
+		pin, err := visa3.Decode("123456789012FAAA", "")
 
 		require.NoError(t, err)
 		require.Equal(t, "123456789012", pin)
