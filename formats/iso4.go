@@ -32,6 +32,11 @@ func (i *iso4Object) SetCipher(cipher Cipher) {
 	if i == nil {
 		return
 	}
+
+	if cipher == nil {
+		return
+	}
+
 	i.cipher = cipher
 }
 
