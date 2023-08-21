@@ -24,7 +24,6 @@ func (i *iso0Object) getVersion() string {
 
 // Padding returns padding pattern
 func (i *iso0Object) padding(pin string) (string, error) {
-
 	if len(pin) < 4 || len(pin) > 12 {
 		return "", fmt.Errorf("pin length must be between 4 and 12 digits")
 	}
@@ -45,7 +44,6 @@ func (i *iso0Object) SetDebugWriter(writer io.Writer) {
 
 // Encode returns the ISO0 PIN block for the given PIN and account number
 func (i *iso0Object) Encode(pin, account string) (string, error) {
-
 	pad, err := i.padding(pin)
 	if err != nil {
 		return "", err

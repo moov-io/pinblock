@@ -20,13 +20,24 @@ type iso4Object struct {
 
 // Padding returns padding pattern
 func (i *iso4Object) padding(pin string) (string, error) {
-
 	// both pinBlock and panBlock are 16 bytes (128 bits)
 	if len(pin) < 4 || len(pin) > 12 {
 		return "", fmt.Errorf("pin length must be between 4 and 12 digits")
 	}
 
 	return strings.Repeat(i.Filler, 16-len(pin)-2), nil
+}
+
+func (i *iso4Object) SetCipher(cipher Cipher) {
+	if i == nil {
+		return
+	}
+
+	if cipher == nil {
+		return
+	}
+
+	i.cipher = cipher
 }
 
 // SetDebugWriter will set writer for getting output message of encoding and decoding logic
@@ -36,7 +47,6 @@ func (i *iso4Object) SetDebugWriter(writer io.Writer) {
 
 // Encode returns an ISO-4 formatted and encrypted PIN block
 func (i *iso4Object) Encode(pin, account string) (string, error) {
-
 	pad, err := i.padding(pin)
 	if err != nil {
 		return "", err
