@@ -15,9 +15,9 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
     - name: Set up Go 1.x
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v4
       with:
-        go-version: '>= 1.20.2'
+        go-version: stable
       id: go
 
     - name: Check out code into the Go module directory
@@ -33,9 +33,4 @@ jobs:
       run: make install
 
     - name: Check
-      if: runner.os != 'Windows'
       run: make check
-
-    - name: Go Tests
-      if: runner.os == 'Windows'
-      run: go test ./... -count 1 -short
