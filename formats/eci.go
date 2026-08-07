@@ -102,16 +102,21 @@ func (i *eciObject) Decode(pinBlock, account string) (string, error) {
 	}
 
 	pinLength := 4
-	if i.getVersion() == eci2Version {
-		pinLength = 4
-	} else {
-		_, err := fmt.Sscanf(pinBlock, "%01d%s", &pinLength, &pinBlock)
+	remainder := pinBlock
+	if i.getVersion() != eci2Version {
+		var rest string
+		_, err := fmt.Sscanf(pinBlock, "%01d%s", &pinLength, &rest)
 		if err != nil {
 			return "", fmt.Errorf("unable to parse pin block")
 		}
 		if pinLength > 6 || pinLength < 4 {
 			return "", fmt.Errorf("unable to parse pin block")
 		}
+		remainder = rest
+	}
+
+	if pinLength > len(remainder) {
+		return "", fmt.Errorf("pin length %d exceeds remaining block length %d", pinLength, len(remainder))
 	}
 
 	// write decode information
@@ -121,8 +126,8 @@ func (i *eciObject) Decode(pinBlock, account string) (string, error) {
 		fmt.Fprintf(tw, "%s\n", strings.Repeat("*", 36))
 		fmt.Fprintf(tw, "Formatted PIN block\t: %s\n", strings.ToUpper(pinBlock))
 		var pad string
-		if len(pinBlock) > pinLength {
-			pad = pinBlock[pinLength:]
+		if len(remainder) > pinLength {
+			pad = remainder[pinLength:]
 		}
 		if pad == "" {
 			fmt.Fprintf(tw, "PAD\t: N/A\n")
@@ -131,9 +136,9 @@ func (i *eciObject) Decode(pinBlock, account string) (string, error) {
 		}
 		fmt.Fprintf(tw, "Format\t: %s\n", i.format)
 		fmt.Fprintf(tw, "%s\n", strings.Repeat("-", 36))
-		fmt.Fprintf(tw, "Decoded PIN\t: %s\n", pinBlock[:pinLength])
+		fmt.Fprintf(tw, "Decoded PIN\t: %s\n", remainder[:pinLength])
 		tw.Write([]byte("\n"))
 	}
 
-	return pinBlock[:pinLength], nil
+	return remainder[:pinLength], nil
 }

@@ -137,14 +137,14 @@ PIN     : 1234`
 
 		expectedOutput := `PIN block decode operation finished
 ************************************
-Formatted PIN block  : 123456789012AAA
+Formatted PIN block  : 6123456789012AAA
 PAD                  : 789012AAA
 Format               : ECI-3
 ------------------------------------
 Decoded PIN  : 123456
 
 `
-		require.Equal(t, out.String(), expectedOutput)
+		require.Equal(t, expectedOutput, out.String())
 	})
 }
 
@@ -206,13 +206,13 @@ PIN     : 1234`
 
 		expectedOutput := `PIN block decode operation finished
 ************************************
-Formatted PIN block  : 123456789012222
+Formatted PIN block  : 6123456789012222
 PAD                  : 789012222
 Format               : VISA-2
 ------------------------------------
 Decoded PIN  : 123456
 
 `
-		require.Equal(t, out.String(), expectedOutput)
+		require.Equal(t, expectedOutput, out.String())
 	})
 }
