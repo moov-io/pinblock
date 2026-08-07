@@ -87,8 +87,11 @@ func (i *oemObject) Decode(pinBlock, account string) (string, error) {
 		return "", fmt.Errorf("pin block must be 16 characters")
 	}
 
-	// getting pin length
+	// getting pin length (characters before the padding digit)
 	pinLength := len(strings.ReplaceAll(pinBlock, pinBlock[len(pinBlock)-1:], ""))
+	if pinLength <= 0 || pinLength > len(pinBlock) {
+		return "", fmt.Errorf("invalid pin length %d", pinLength)
+	}
 
 	// write decode information
 	if i.debugWriter != nil {

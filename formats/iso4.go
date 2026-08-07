@@ -162,9 +162,15 @@ func (i *iso4Object) Decode(pinBlock, account string) (string, error) {
 	plainPinBlock := hex.EncodeToString(rawPinBlock)
 
 	// rawPinBlock should now be the original pinBlock, we'll parse it to get the PIN.
+	if len(plainPinBlock) < 2 {
+		return "", fmt.Errorf("plain pin block too short")
+	}
 	pinLength, err := strconv.ParseInt(string(plainPinBlock[1]), 16, 64)
 	if err != nil {
 		return "", fmt.Errorf("parsing pin length: %w", err)
+	}
+	if pinLength < 4 || pinLength > 12 || 2+int(pinLength) > len(plainPinBlock) {
+		return "", fmt.Errorf("invalid pin length %d", pinLength)
 	}
 
 	pin := string(plainPinBlock[2 : 2+pinLength])

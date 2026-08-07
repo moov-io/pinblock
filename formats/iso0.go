@@ -112,6 +112,9 @@ func (i *iso0Object) Decode(pinBlock, account string) (string, error) {
 
 	// decodedBlock should start with 0, then has length of pin, then has pin, then has F until 16 characters
 	pinLength := int(decodedBlock[1] - '0')
+	if pinLength < 4 || pinLength > 12 || 2+pinLength > len(decodedBlock) {
+		return "", fmt.Errorf("invalid pin length %d", pinLength)
+	}
 	pin := decodedBlock[2 : 2+pinLength]
 
 	// write decode information
