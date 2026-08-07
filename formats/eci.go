@@ -103,10 +103,7 @@ func (i *eciObject) Decode(pinBlock, account string) (string, error) {
 
 	pinLength := 4
 	remainder := pinBlock
-	if i.getVersion() == eci2Version {
-		pinLength = 4
-		remainder = pinBlock
-	} else {
+	if i.getVersion() != eci2Version {
 		var rest string
 		_, err := fmt.Sscanf(pinBlock, "%01d%s", &pinLength, &rest)
 		if err != nil {
