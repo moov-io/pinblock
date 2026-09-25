@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
+
+	"github.com/ccoveille/go-safecast/v2"
 )
 
 type iso0Object struct {
@@ -116,7 +118,10 @@ func (i *iso0Object) Decode(pinBlock, account string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("parsing pin length: %w", err)
 	}
-	pinLength := int(pinLength64)
+	pinLength, err := safecast.Convert[int](pinLength64)
+	if err != nil {
+		return "", fmt.Errorf("converting pin length: %w", err)
+	}
 	if pinLength < 4 || pinLength > 12 || 2+pinLength > len(decodedBlock) {
 		return "", fmt.Errorf("invalid pin length %d", pinLength)
 	}
