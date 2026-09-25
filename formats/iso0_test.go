@@ -402,3 +402,14 @@ Formatted PAN block  : 0000210123456789
 		require.Equal(t, expectedOutput, out.String())
 	})
 }
+
+func TestISO0RoundTripTenDigitPIN(t *testing.T) {
+	pin := "1234567890"
+	account := "5432101234567891"
+	iso0 := formats.NewISO0()
+	pinBlock, err := iso0.Encode(pin, account)
+	require.NoError(t, err)
+	decoded, err := iso0.Decode(pinBlock, account)
+	require.NoError(t, err)
+	require.Equal(t, pin, decoded)
+}

@@ -3,6 +3,7 @@ package formats
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 )
@@ -111,7 +112,11 @@ func (i *iso0Object) Decode(pinBlock, account string) (string, error) {
 	}
 
 	// decodedBlock should start with 0, then has length of pin, then has pin, then has F until 16 characters
-	pinLength := int(decodedBlock[1] - '0')
+	pinLength64, err := strconv.ParseInt(decodedBlock[1:2], 16, 64)
+	if err != nil {
+		return "", fmt.Errorf("parsing pin length: %w", err)
+	}
+	pinLength := int(pinLength64)
 	if pinLength < 4 || pinLength > 12 || 2+pinLength > len(decodedBlock) {
 		return "", fmt.Errorf("invalid pin length %d", pinLength)
 	}
