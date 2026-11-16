@@ -1,149 +1,97 @@
 package formats
 
-import (
-	"fmt"
-	"io"
-	"strconv"
-	"strings"
-	"text/tabwriter"
+import "fmt"
 
-	"github.com/ccoveille/go-safecast/v2"
-)
-
+// iso0Object implements ISO 9564-1 Formats 0 and 3 (and ANSI X9.8, ECI-1,
+// VISA-1 and VISA-4, which are Format 0).
+//
+// PIN field (16 nibbles): C N P1 .. P4 P5/F .. P12/F F13 F14
+//
+//	C = control field, 0 for Format 0 and 3 for Format 3
+//	N = PIN length, 4 to 12
+//	P = PIN digit
+//	F = fill: 0xF for Format 0, random 0xA to 0xF for Format 3
+//
+// PAN field (16 nibbles): 0 0 0 0 A1 ... A12, the 12 rightmost PAN digits
+// excluding the check digit. The PIN block is the two fields XORed.
 type iso0Object struct {
-	Filler string
-
-	version     string
-	format      string
-	debugWriter io.Writer
+	version byte
+	format  string
 }
 
-func (i *iso0Object) getVersion() string {
-	if i.version == iso0Version || i.version == iso3Version {
-		return i.version
+// fill writes the fill nibbles for this format into dst.
+func (i *iso0Object) fill(dst []byte) error {
+	if i.version == 0x3 {
+		return randomFill(dst, letterNibble)
 	}
-	return iso0Version
+	for n := range dst {
+		dst[n] = 0xF
+	}
+	return nil
 }
 
-// Padding returns padding pattern
-func (i *iso0Object) padding(pin string) (string, error) {
+// validFill reports whether n is a fill nibble this format allows.
+func (i *iso0Object) validFill(n byte) bool {
+	if i.version == 0x3 {
+		return n >= 0xA
+	}
+	return n == 0xF
+}
+
+// Encode returns the 8-byte PIN block for pin and account. See Format.
+func (i *iso0Object) Encode(pin, account []byte) ([]byte, error) {
 	if len(pin) < 4 || len(pin) > 12 {
-		return "", fmt.Errorf("pin length must be between 4 and 12 digits")
+		return nil, fmt.Errorf("pin length must be between 4 and 12 digits")
 	}
 
-	length := 14 - len(pin)
-	if i.Filler == "" {
-		// ISO3
-		//  fill is random values from 10 to 15,
-		return randomLetters(length, hexCharacters)
+	pinField := make([]byte, fieldNibbles)
+	defer wipe(pinField)
+	pinField[0] = i.version
+	pinField[1] = byte(len(pin) & 0x0F) // 4..12, checked above
+	if err := digitNibbles(pinField[2:], pin, "pin"); err != nil {
+		return nil, err
 	}
-	return strings.Repeat(i.Filler, length), nil
+	if err := i.fill(pinField[2+len(pin):]); err != nil {
+		return nil, err
+	}
+
+	panField, err := panFieldISO0(account)
+	if err != nil {
+		return nil, err
+	}
+	defer wipe(panField)
+
+	xorInto(pinField, pinField, panField)
+	return pack(pinField), nil
 }
 
-// SetDebugWriter will set writer for getting output message of encoding and decoding logic
-func (i *iso0Object) SetDebugWriter(writer io.Writer) {
-	i.debugWriter = tabwriter.NewWriter(writer, 0, 0, 2, ' ', 0)
-}
+// Decode returns the PIN from an 8-byte PIN block. See Format.
+func (i *iso0Object) Decode(pinBlock, account []byte) ([]byte, error) {
+	if len(pinBlock) != 8 {
+		return nil, fmt.Errorf("pin block must be 8 bytes")
+	}
 
-// Encode returns the ISO0 PIN block for the given PIN and account number
-func (i *iso0Object) Encode(pin, account string) (string, error) {
-	pad, err := i.padding(pin)
+	panField, err := panFieldISO0(account)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
+	defer wipe(panField)
 
-	// pin block should start with 0, then add length of pin, then add pin,
-	// then add F until 16 characters
-	pinBlock := fmt.Sprintf("%s%X%s%s", i.getVersion(), len(pin), pin, pad)
+	pinField := unpack(pinBlock)
+	defer wipe(pinField)
+	xorInto(pinField, pinField, panField)
 
-	// account number must be at least 13 digits, including the check digit
-	if len(account) < 13 {
-		return "", fmt.Errorf("account length must be at least 13 digits")
+	if pinField[0] != i.version {
+		return nil, fmt.Errorf("format is different")
 	}
-
-	// take the last 12 digits of the account number excluding the check digit
-	accountBlock := fmt.Sprintf("0000%s", account[len(account)-13:len(account)-1])
-
-	xorBlock, err := xorHex(pinBlock, accountBlock)
-	if err != nil {
-		return "", err
+	pinLength := int(pinField[1])
+	if pinLength < 4 || pinLength > 12 {
+		return nil, fmt.Errorf("invalid pin length %d", pinLength)
 	}
-
-	// write encode information
-	if i.debugWriter != nil {
-		tw := i.debugWriter
-		fmt.Fprintf(tw, "PIN block encode operation finished\n")
-		fmt.Fprintf(tw, "%s\n", strings.Repeat("*", 36))
-		fmt.Fprintf(tw, "PAN\t: %s\n", account)
-		fmt.Fprintf(tw, "PIN\t: %s\n", pin)
-		if len(pad) == 0 {
-			fmt.Fprintf(tw, "PAD\t: N/A\n")
-		} else {
-			fmt.Fprintf(tw, "PAD\t: %s\n", pad)
+	for _, n := range pinField[2+pinLength:] {
+		if !i.validFill(n) {
+			return nil, fmt.Errorf("invalid fill in pin block")
 		}
-		fmt.Fprintf(tw, "Format\t: %s\n", i.format)
-		fmt.Fprintf(tw, "%s\n", strings.Repeat("-", 36))
-		fmt.Fprintf(tw, "Formatted PIN block\t: %s\n", strings.ToUpper(xorBlock))
-		fmt.Fprintf(tw, "Formatted PAN block\t: %s\n", strings.ToUpper(accountBlock))
-		tw.Write([]byte("\n"))
 	}
-
-	return strings.ToUpper(xorBlock), nil
-}
-
-func (i *iso0Object) Decode(pinBlock, account string) (string, error) {
-	if len(pinBlock) != 16 {
-		return "", fmt.Errorf("pin block must be 16 characters")
-	}
-
-	if len(account) < 13 {
-		return "", fmt.Errorf("account length must be at least 13 digits")
-	}
-
-	// take the last 12 digits of the account number excluding the check digit
-	accountBlock := fmt.Sprintf("0000%s", account[len(account)-13:len(account)-1])
-
-	decodedBlock, err := xorHex(pinBlock, accountBlock)
-	if err != nil {
-		return "", err
-	}
-
-	// checking format
-	if decodedBlock[0:1] != i.getVersion() {
-		return "", fmt.Errorf("format is different")
-	}
-
-	// decodedBlock should start with 0, then has length of pin, then has pin, then has F until 16 characters
-	pinLength64, err := strconv.ParseInt(decodedBlock[1:2], 16, 64)
-	if err != nil {
-		return "", fmt.Errorf("parsing pin length: %w", err)
-	}
-	pinLength, err := safecast.Convert[int](pinLength64)
-	if err != nil {
-		return "", fmt.Errorf("converting pin length: %w", err)
-	}
-	if pinLength < 4 || pinLength > 12 || 2+pinLength > len(decodedBlock) {
-		return "", fmt.Errorf("invalid pin length %d", pinLength)
-	}
-	pin := decodedBlock[2 : 2+pinLength]
-
-	// write decode information
-	if i.debugWriter != nil {
-		tw := i.debugWriter
-		fmt.Fprintf(tw, "PIN block decode operation finished\n")
-		fmt.Fprintf(tw, "%s\n", strings.Repeat("*", 36))
-		fmt.Fprintf(tw, "Formatted PAN block\t: %s\n", strings.ToUpper(accountBlock))
-		fmt.Fprintf(tw, "Formatted PIN block\t: %s\n", strings.ToUpper(decodedBlock))
-		if pad, _ := i.padding(pin); len(pad) == 0 {
-			fmt.Fprintf(tw, "PAD\t: N/A\n")
-		} else {
-			fmt.Fprintf(tw, "PAD\t: %s\n", pad)
-		}
-		fmt.Fprintf(tw, "Format\t: %s\n", i.format)
-		fmt.Fprintf(tw, "%s\n", strings.Repeat("-", 36))
-		fmt.Fprintf(tw, "Decoded PIN\t: %s\n", pin)
-		tw.Write([]byte("\n"))
-	}
-
-	return pin, nil
+	return pinFromNibbles(pinField[2 : 2+pinLength])
 }

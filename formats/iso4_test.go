@@ -1,7 +1,6 @@
 package formats
 
 import (
-	"bytes"
 	"testing"
 
 	"github.com/moov-io/pinblock/encryption"
@@ -9,77 +8,73 @@ import (
 )
 
 func TestISO4(t *testing.T) {
+	account := []byte("432198765432109870")
+
 	t.Run("Encode/Decode with AES encryption", func(t *testing.T) {
 		cipher, err := encryption.NewAesECB([]byte("1234567890123456"))
 		require.NoError(t, err)
-
 		iso4 := NewISO4(cipher)
 
-		// Encode
-		pinBlock, err := iso4.Encode("12344", "432198765432109870")
-
+		pinBlock, err := iso4.Encode([]byte("12344"), account)
 		require.NoError(t, err)
-		require.Len(t, pinBlock, 32)
+		require.Len(t, pinBlock, 16)
 
-		// Decode
-		pin, err := iso4.Decode(pinBlock, "432198765432109870")
-
+		pin, err := iso4.Decode(pinBlock, account)
 		require.NoError(t, err)
-		require.Equal(t, "12344", pin)
+		require.Equal(t, []byte("12344"), pin)
 	})
 
 	t.Run("Encode/Decode with NoOp encryption", func(t *testing.T) {
-		cipher := encryption.NewNoOp()
-		iso4 := NewISO4(cipher)
+		iso4 := NewISO4(encryption.NewNoOp())
 
-		pinBlock, err := iso4.Encode("1234", "432198765432109870")
-
+		pinBlock, err := iso4.Encode([]byte("1234"), account)
 		require.NoError(t, err)
-		require.Len(t, pinBlock, 32)
+		require.Len(t, pinBlock, 16)
 
 		// compare only part of the pin block because the rest is random
-		require.Equal(t, "20202D2DCFE98BA3", string(pinBlock[0:16]))
+		require.Equal(t, []byte{0x20, 0x20, 0x2D, 0x2D, 0xCF, 0xE9, 0x8B, 0xA3}, pinBlock[:8])
 
-		pin, err := iso4.Decode(pinBlock, "432198765432109870")
-
+		pin, err := iso4.Decode(pinBlock, account)
 		require.NoError(t, err)
-		require.Equal(t, "1234", pin)
+		require.Equal(t, []byte("1234"), pin)
 	})
 
-	t.Run("encode/decode logs", func(t *testing.T) {
-		cipher, err := encryption.NewAesECB([]byte("1234567890123456"))
+	t.Run("wrong key is refused", func(t *testing.T) {
+		c1, err := encryption.NewAesECB([]byte("1234567890123456"))
+		require.NoError(t, err)
+		c2, err := encryption.NewAesECB([]byte("6543210987654321"))
 		require.NoError(t, err)
 
-		iso4 := NewISO4(cipher)
-		out := bytes.NewBuffer([]byte{})
-		iso4.SetDebugWriter(out)
-
-		// Encode
-		pinBlock, err := iso4.Encode("12344", "432198765432109870")
-
+		pinBlock, err := NewISO4(c1).Encode([]byte("1234"), account)
 		require.NoError(t, err)
-		require.Len(t, pinBlock, 32)
-
-		expectedOutput := `PIN block encode operation finished
-************************************
-PAN     : 432198765432109870
-PIN     : 12344
-PAD     : AAAAAAAAA
-Format  : Format 4 (ISO-4)
-------------------------------------
-PAN block            : 64321987654321098700000000000000`
-		require.Contains(t, out.String(), expectedOutput)
-
-		// flash buffer
-		out.Reset()
-
-		// Decode
-		pin, err := iso4.Decode(pinBlock, "432198765432109870")
-
-		require.NoError(t, err)
-		require.Equal(t, "12344", pin)
-
-		expectedOutput = `PIN block decode operation finished`
-		require.Contains(t, out.String(), expectedOutput)
+		_, err = NewISO4(c2).Decode(pinBlock, account)
+		require.Error(t, err)
 	})
+
+	t.Run("bad lengths", func(t *testing.T) {
+		iso4 := NewISO4(encryption.NewNoOp())
+		_, err := iso4.Encode([]byte("123"), account)
+		require.Error(t, err)
+		_, err = iso4.Encode([]byte("1234"), []byte("12345678901"))
+		require.Error(t, err)
+		_, err = iso4.Encode([]byte("1234"), []byte("12345678901234567890"))
+		require.Error(t, err)
+		_, err = iso4.Decode(make([]byte, 15), account)
+		require.Error(t, err)
+	})
+}
+
+// shortCipher returns the wrong length, which used to reach a slice index or
+// an XOR length mismatch; now it is a plain error.
+type shortCipher struct{}
+
+func (shortCipher) Encrypt(p []byte) ([]byte, error) { return p[:8], nil }
+func (shortCipher) Decrypt(c []byte) ([]byte, error) { return c[:8], nil }
+
+func TestISO4_CipherReturnsWrongLength(t *testing.T) {
+	account := []byte("432198765432109870")
+	_, err := NewISO4(shortCipher{}).Encode([]byte("1234"), account)
+	require.ErrorContains(t, err, "cipher returned 8 bytes")
+	_, err = NewISO4(shortCipher{}).Decode(make([]byte, 16), account)
+	require.ErrorContains(t, err, "cipher returned 8 bytes")
 }

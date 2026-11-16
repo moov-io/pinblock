@@ -1,7 +1,6 @@
 package formats_test
 
 import (
-	"bytes"
 	"testing"
 
 	"github.com/moov-io/pinblock/formats"
@@ -9,73 +8,22 @@ import (
 )
 
 func TestVISA3(t *testing.T) {
-	t.Run("Encode", func(t *testing.T) {
-		pin := "1234"
+	pinBlock, err := formats.NewVISA3().Encode(testPIN, nil)
+	require.NoError(t, err)
+	require.Equal(t, "1234F", hexOf(pinBlock)[:5])
 
-		visa3 := formats.NewVISA3()
-		pinBlock, err := visa3.Encode(pin, "")
+	pinBlock, err = formats.NewVISA3().Encode([]byte("123456789012"), nil)
+	require.NoError(t, err)
+	require.Equal(t, "123456789012F", hexOf(pinBlock)[:13])
 
-		require.NoError(t, err)
-		require.Contains(t, pinBlock, "1234F")
+	pin, err := formats.NewVISA3().Decode(block(t, "1234F55555555555"), nil)
+	require.NoError(t, err)
+	require.Equal(t, testPIN, pin)
 
-		pin = "123456789012"
-		pinBlock, err = visa3.Encode(pin, "")
+	pin, err = formats.NewVISA3().Decode(block(t, "123456789012FAAA"), nil)
+	require.NoError(t, err)
+	require.Equal(t, []byte("123456789012"), pin)
 
-		require.NoError(t, err)
-		require.Contains(t, pinBlock, "123456789012F")
-	})
-
-	t.Run("Decode", func(t *testing.T) {
-		visa3 := formats.NewVISA3()
-		pin, err := visa3.Decode("1234F55555555555", "")
-
-		require.NoError(t, err)
-		require.Equal(t, "1234", pin)
-
-		pin, err = visa3.Decode("123456789012FAAA", "")
-
-		require.NoError(t, err)
-		require.Equal(t, "123456789012", pin)
-	})
-
-	t.Run("encode logs", func(t *testing.T) {
-
-		visa3 := formats.NewVISA3()
-		out := bytes.NewBuffer([]byte{})
-		visa3.SetDebugWriter(out)
-
-		pin := "1234"
-		pinBlock, err := visa3.Encode(pin, "")
-
-		require.NoError(t, err)
-		require.Contains(t, pinBlock, "1234F")
-
-		expectedOutput := `PIN block encode operation finished
-************************************
-PIN     : 1234
-PAD     : `
-		require.Contains(t, out.String(), expectedOutput)
-	})
-
-	t.Run("decode logs", func(t *testing.T) {
-		visa3 := formats.NewVISA3()
-		out := bytes.NewBuffer([]byte{})
-		visa3.SetDebugWriter(out)
-
-		pin, err := visa3.Decode("123456789012FAAA", "")
-
-		require.NoError(t, err)
-		require.Equal(t, "123456789012", pin)
-
-		expectedOutput := `PIN block decode operation finished
-************************************
-Formatted PIN block  : 123456789012FAAA
-PAD                  : AAA
-Format               : VISA-3
-------------------------------------
-Decoded PIN  : 123456789012
-
-`
-		require.Equal(t, expectedOutput, out.String())
-	})
+	_, err = formats.NewVISA3().Decode(block(t, "123F555555555555"), nil)
+	require.Error(t, err)
 }

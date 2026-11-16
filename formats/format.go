@@ -2,33 +2,42 @@ package formats
 
 import (
 	"fmt"
-	"io"
 
 	"github.com/moov-io/pinblock/encryption"
 )
 
-const (
-	iso0Version  = "0"
-	iso1Version  = "1"
-	iso2Version  = "2"
-	iso3Version  = "3"
-	eci2Version  = "eci-2"
-	eci3Version  = "eci-3"
-	visa2Version = "visa-2"
-)
-
-var (
-	hexLetters    = []byte{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'A', 'B', 'C', 'D', 'E', 'F'}
-	hexDigits     = []byte{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0'}
-	hexCharacters = []byte{'A', 'B', 'C', 'D', 'E', 'F'}
-)
-
+// Format encodes a PIN into a PIN block and decodes it back.
+//
+// PIN, PAN and PIN block are all []byte, never string, so the caller can clear
+// every one of them: a Go string cannot be overwritten, so a PIN that becomes a
+// string stays in memory until the garbage collector reuses it.
+//
+//   - pin is the PIN as ASCII decimal digits, for example []byte("1234").
+//   - account is the PAN as ASCII decimal digits. Formats that do not use the
+//     PAN (ISO-1, ISO-2, OEM-1, ECI-2, ECI-3, ECI-4, VISA-2, VISA-3) ignore it.
+//   - A PIN block is binary: 8 bytes, or 16 bytes for ISO-4.
+//
+// Neither method modifies its arguments. Each returns a new slice that belongs
+// to the caller, who should clear it (for example with the clear builtin) once
+// it is no longer needed. Every intermediate the method creates (the PIN field,
+// the PAN field, XOR results and random fill) is cleared before it returns,
+// including when it returns an error.
 type Format interface {
-	SetDebugWriter(writer io.Writer)
-	Encode(pin, account string) (string, error)
-	Decode(pinBlock, account string) (string, error)
+	// Encode returns the PIN block for pin and account.
+	Encode(pin, account []byte) ([]byte, error)
+	// Decode returns the PIN held in pinBlock. It checks the block's structure
+	// (format nibble, PIN length, decimal digits and, where the format defines
+	// it, the fill) and returns an error rather than a PIN if it is malformed,
+	// which is also what a block decrypted under the wrong key looks like.
+	Decode(pinBlock, account []byte) ([]byte, error)
 }
 
+// Cipher is the block cipher ISO-4 uses, with a 16-byte block.
+//
+// Encrypt and Decrypt must not modify their input and must return a new
+// 16-byte slice. The ISO-4 format copies the result and clears the slice it
+// was given, so an implementation that returns a buffer it keeps will find it
+// cleared.
 type Cipher interface {
 	Encrypt(plainText []byte) ([]byte, error)
 	Decrypt(cipherText []byte) ([]byte, error)
@@ -55,6 +64,8 @@ var (
 	}
 )
 
+// NewFormatter returns the Format named bType: one of ISO-0, ISO-1, ISO-2,
+// ISO-3, ISO-4, ANSI, ECI1, ECI2, ECI3, ECI4, VISA1, VISA2, VISA3 or VISA4.
 func NewFormatter(bType string) (Format, error) {
 	constructor := formatConstructor[bType]
 	if constructor == nil {
@@ -64,32 +75,24 @@ func NewFormatter(bType string) (Format, error) {
 	return constructor(), nil
 }
 
+// NewISO0 returns ISO 9564-1 Format 0: the PIN field (0, PIN length, PIN,
+// fill F) XORed with the PAN field (0000 and the 12 rightmost PAN digits
+// excluding the check digit).
 func NewISO0() Format {
-	return &iso0Object{
-		Filler: "F", // default to ISO0's Filler
-
-		format:  "Format 0 (ISO-0)",
-		version: iso0Version,
-	}
+	return &iso0Object{format: "Format 0 (ISO-0)", version: 0x0}
 }
 
+// NewISO1 returns ISO 9564-1 Format 1: 1, PIN length, PIN and random fill,
+// with no PAN. It is recommended where no PAN is available.
 func NewISO1() Format {
-	return &iso1Object{
-		version: iso1Version,
-		format:  "Format 1 (ISO-1)",
-	}
+	return &iso1Object{format: "Format 1 (ISO-1)", version: 0x1}
 }
 
 // The ISO-2 PIN Block format is used for smart card offline authentication.
 // It is similar to an ISO-1 PIN Block in that there is no PAN to associate with the PIN.
-// It differs in that the fill is 0xF instead of random digits
+// It differs in that the fill is 0xF instead of random values.
 func NewISO2() Format {
-	return &iso1Object{
-		Filler: "F", // default to ISO1's Filler
-
-		format:  "Format 2 (ISO-2)",
-		version: iso2Version,
-	}
+	return &iso1Object{format: "Format 2 (ISO-2)", version: 0x2}
 }
 
 // ISO 9564-1: 2002 Format 3.
@@ -97,31 +100,21 @@ func NewISO2() Format {
 //	Format 3 is the same as format 0, except that the “fill” digits are random values from 10 to 15,
 //	and the first nibble (which identifies the block format) has the value 3.
 func NewISO3() Format {
-	return &iso0Object{
-		format:  "Format 3 (ISO-3)",
-		version: iso3Version,
-	}
+	return &iso0Object{format: "Format 3 (ISO-3)", version: 0x3}
 }
 
+// ISO 9564-1 Format 4, for AES. The PIN field is encrypted, XORed with the PAN
+// field and encrypted again under cipher. NewFormatter("ISO-4") uses a no-op
+// cipher, which yields the unencrypted structure and is meant for tests.
 func NewISO4(cipher Cipher) Format {
-	return &iso4Object{
-		Filler: "A", // default to ISO-4
-
-		cipher: cipher,
-		format: "Format 4 (ISO-4)",
-	}
+	return &iso4Object{cipher: cipher, format: "Format 4 (ISO-4)"}
 }
 
 // ANSI X9.8:
 //
 //	Same as ISO-0.
 func NewANSIX98() Format {
-	return &iso0Object{
-		Filler: "F", // default to ISO0's Filler
-
-		format:  "ANSI X9.8",
-		version: iso0Version,
-	}
+	return &iso0Object{format: "ANSI X9.8", version: 0x0}
 }
 
 // OEM-1 / Diebold / Docutel / NCR
@@ -139,58 +132,36 @@ func NewOEM1() Format {
 //
 //	Same as ISO-0.
 func NewECI1() Format {
-	return &iso0Object{
-		Filler: "F", // default to ISO0's Filler
-
-		version: iso0Version,
-		format:  "ECI-1",
-	}
+	return &iso0Object{format: "ECI-1", version: 0x0}
 }
 
 // ECI-2
 func NewECI2() Format {
-	return &eciObject{
-		format:  "ECI-2",
-		version: eci2Version,
-	}
+	return &eciObject{format: "ECI-2", version: eci2Version}
 }
 
 // ECI-3
 func NewECI3() Format {
-	return &eciObject{
-		format:  "ECI-3",
-		version: eci3Version,
-	}
+	return &eciObject{format: "ECI-3", version: eci3Version}
 }
 
 // ECI-4
 //
 //	Same as ISO-1.
 func NewECI4() Format {
-	return &iso1Object{
-		format:  "ECI-4",
-		version: iso1Version,
-	}
+	return &iso1Object{format: "ECI-4", version: 0x1}
 }
 
 // VISA-1
 //
 //	Same as ISO-0.
 func NewVISA1() Format {
-	return &iso0Object{
-		Filler: "F", // default to ISO0's Filler
-
-		version: iso0Version,
-		format:  "VISA-1",
-	}
+	return &iso0Object{format: "VISA-1", version: 0x0}
 }
 
 // VISA-2
 func NewVISA2() Format {
-	return &eciObject{
-		version: visa2Version,
-		format:  "VISA-2",
-	}
+	return &eciObject{format: "VISA-2", version: visa2Version}
 }
 
 // VISA-3
@@ -202,10 +173,5 @@ func NewVISA3() Format {
 
 // VISA-4
 func NewVISA4() Format {
-	return &iso0Object{
-		Filler: "F", // default to ISO0's Filler
-
-		version: iso0Version,
-		format:  "VISA-4",
-	}
+	return &iso0Object{format: "VISA-4", version: 0x0}
 }

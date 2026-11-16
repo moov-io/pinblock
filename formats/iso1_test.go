@@ -1,7 +1,6 @@
 package formats_test
 
 import (
-	"bytes"
 	"testing"
 
 	"github.com/moov-io/pinblock/formats"
@@ -10,172 +9,72 @@ import (
 
 func TestISO1(t *testing.T) {
 	t.Run("Encode", func(t *testing.T) {
-		pin := "1234"
-
-		iso1 := formats.NewISO1()
-		pinBlock, err := iso1.Encode(pin, "")
-
+		pinBlock, err := formats.NewISO1().Encode(testPIN, nil)
 		require.NoError(t, err)
-		require.Contains(t, pinBlock, "141234")
+		require.Equal(t, "141234", hexOf(pinBlock)[:6])
 
-		pin = "123456789012"
-		pinBlock, err = iso1.Encode(pin, "")
-
+		pinBlock, err = formats.NewISO1().Encode([]byte("123456789012"), nil)
 		require.NoError(t, err)
-		require.Contains(t, pinBlock, "1C123456789012")
+		require.Equal(t, "1C123456789012", hexOf(pinBlock)[:14])
 	})
 
 	t.Run("Decode", func(t *testing.T) {
-		iso1 := formats.NewISO1()
-		pin, err := iso1.Decode("141234FFFFFFFFFF", "")
-
+		pin, err := formats.NewISO1().Decode(block(t, "141234FFFFFFFFFF"), nil)
 		require.NoError(t, err)
-		require.Equal(t, "1234", pin)
+		require.Equal(t, testPIN, pin)
 
-		pin, err = iso1.Decode("1C123456789012FF", "")
-
+		pin, err = formats.NewISO1().Decode(block(t, "1C123456789012FF"), nil)
 		require.NoError(t, err)
-		require.Equal(t, "123456789012", pin)
+		require.Equal(t, []byte("123456789012"), pin)
+
+		pin, err = formats.NewECI4().Decode(block(t, "1C123456789012FF"), nil)
+		require.NoError(t, err)
+		require.Equal(t, []byte("123456789012"), pin)
 	})
 
-	t.Run("encode logs", func(t *testing.T) {
-
-		iso1 := formats.NewISO1()
-		out := bytes.NewBuffer([]byte{})
-		iso1.SetDebugWriter(out)
-
-		pin := "1234"
-		pinBlock, err := iso1.Encode(pin, "")
-
-		require.NoError(t, err)
-		require.Contains(t, pinBlock, "141234")
-
-		expectedOutput := `PIN block encode operation finished
-************************************
-PIN     : 1234`
-		require.Contains(t, out.String(), expectedOutput)
+	// ISO 9564-1 allows 4 to 12 PIN digits. A longer PIN used to be truncated
+	// silently, and a block with a length nibble outside 4..12 was decoded.
+	t.Run("pin length", func(t *testing.T) {
+		_, err := formats.NewISO1().Encode([]byte("1234567890123"), nil)
+		require.Error(t, err)
+		_, err = formats.NewISO1().Encode([]byte("123"), nil)
+		require.Error(t, err)
+		_, err = formats.NewISO1().Decode(block(t, "13123FFFFFFFFFFF"), nil)
+		require.ErrorContains(t, err, "invalid pin length")
+		_, err = formats.NewISO1().Decode(block(t, "1E12345678901234"), nil)
+		require.ErrorContains(t, err, "invalid pin length")
 	})
 
-	t.Run("decode logs", func(t *testing.T) {
-		iso1 := formats.NewISO1()
-		out := bytes.NewBuffer([]byte{})
-		iso1.SetDebugWriter(out)
-
-		pin, err := iso1.Decode("1C123456789012FF", "")
-
-		require.NoError(t, err)
-		require.Equal(t, "123456789012", pin)
-
-		expectedOutput := `PIN block decode operation finished
-************************************
-Formatted PIN block  : 123456789012FF
-PAD                  : FF
-Format               : Format 1 (ISO-1)
-------------------------------------
-Decoded PIN  : 123456789012
-
-`
-		require.Equal(t, expectedOutput, out.String())
+	t.Run("round trip", func(t *testing.T) {
+		for _, ctor := range []func() formats.Format{formats.NewISO1, formats.NewECI4} {
+			pinBlock, err := ctor().Encode([]byte("98765"), nil)
+			require.NoError(t, err)
+			pin, err := ctor().Decode(pinBlock, nil)
+			require.NoError(t, err)
+			require.Equal(t, []byte("98765"), pin)
+		}
 	})
 }
 
 func TestISO2(t *testing.T) {
-	t.Run("Encode", func(t *testing.T) {
-		pin := "1234"
+	pinBlock, err := formats.NewISO2().Encode(testPIN, nil)
+	require.NoError(t, err)
+	require.Equal(t, "241234FFFFFFFFFF", hexOf(pinBlock))
 
-		iso2 := formats.NewISO2()
-		pinBlock, err := iso2.Encode(pin, "")
+	pinBlock, err = formats.NewISO2().Encode([]byte("123456789012"), nil)
+	require.NoError(t, err)
+	require.Equal(t, "2C123456789012FF", hexOf(pinBlock))
 
-		require.NoError(t, err)
-		require.Equal(t, "241234FFFFFFFFFF", pinBlock)
+	pin, err := formats.NewISO2().Decode(block(t, "241234FFFFFFFFFF"), nil)
+	require.NoError(t, err)
+	require.Equal(t, testPIN, pin)
 
-		pin = "123456789012"
-		pinBlock, err = iso2.Encode(pin, "")
+	pin, err = formats.NewISO2().Decode(block(t, "2C123456789012FF"), nil)
+	require.NoError(t, err)
+	require.Equal(t, []byte("123456789012"), pin)
 
-		require.NoError(t, err)
-		require.Equal(t, "2C123456789012FF", pinBlock)
-	})
-
-	t.Run("Decode", func(t *testing.T) {
-		iso2 := formats.NewISO2()
-		pin, err := iso2.Decode("241234FFFFFFFFFF", "")
-
-		require.NoError(t, err)
-		require.Equal(t, "1234", pin)
-
-		pin, err = iso2.Decode("2C123456789012FF", "")
-
-		require.NoError(t, err)
-		require.Equal(t, "123456789012", pin)
-	})
-
-	t.Run("encode logs", func(t *testing.T) {
-
-		iso2 := formats.NewISO2()
-		out := bytes.NewBuffer([]byte{})
-		iso2.SetDebugWriter(out)
-
-		pin := "1234"
-		pinBlock, err := iso2.Encode(pin, "")
-
-		require.NoError(t, err)
-		require.Equal(t, "241234FFFFFFFFFF", pinBlock)
-
-		expectedOutput := `PIN block encode operation finished
-************************************
-PIN     : 1234
-PAD     : FFFFFFFFFF
-Format  : Format 2 (ISO-2)
-------------------------------------
-Formatted PIN block  : 241234FFFFFFFFFF
-
-`
-		require.Equal(t, expectedOutput, out.String())
-	})
-
-	t.Run("decode logs", func(t *testing.T) {
-		iso2 := formats.NewISO2()
-		out := bytes.NewBuffer([]byte{})
-		iso2.SetDebugWriter(out)
-
-		pin, err := iso2.Decode("2C123456789012FF", "")
-
-		require.NoError(t, err)
-		require.Equal(t, "123456789012", pin)
-
-		expectedOutput := `PIN block decode operation finished
-************************************
-Formatted PIN block  : 123456789012FF
-PAD                  : FF
-Format               : Format 2 (ISO-2)
-------------------------------------
-Decoded PIN  : 123456789012
-
-`
-		require.Equal(t, expectedOutput, out.String())
-	})
-}
-
-func TestECI4(t *testing.T) {
-	t.Run("ECI4 logs", func(t *testing.T) {
-		iso1 := formats.NewECI4()
-		out := bytes.NewBuffer([]byte{})
-		iso1.SetDebugWriter(out)
-
-		pin, err := iso1.Decode("1C123456789012FF", "")
-
-		require.NoError(t, err)
-		require.Equal(t, "123456789012", pin)
-
-		expectedOutput := `PIN block decode operation finished
-************************************
-Formatted PIN block  : 123456789012FF
-PAD                  : FF
-Format               : ECI-4
-------------------------------------
-Decoded PIN  : 123456789012
-
-`
-		require.Equal(t, expectedOutput, out.String())
-	})
+	_, err = formats.NewISO2().Decode(block(t, "241234FFFFFFFFFA"), nil)
+	require.ErrorContains(t, err, "invalid fill")
+	_, err = formats.NewISO2().Decode(block(t, "141234FFFFFFFFFF"), nil)
+	require.ErrorContains(t, err, "format is different")
 }

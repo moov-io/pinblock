@@ -1,197 +1,170 @@
 package formats
 
-import (
-	"crypto/rand"
-	"encoding/hex"
-	"fmt"
-	"io"
-	"strconv"
-	"strings"
-	"text/tabwriter"
-)
+import "fmt"
 
+// iso4BlockLen is the length in bytes of an ISO-4 PIN block: one AES block.
+const iso4BlockLen = 16
+
+// iso4Object implements ISO 9564-1 Format 4, for AES.
+//
+// Plain PIN field (32 nibbles): C N P1 .. P4 P5/A .. P12/A A13 A14 R1 .. R16
+//
+//	C = control field, 4
+//	N = PIN length, 4 to 12
+//	P = PIN digit
+//	A = fill, 0xA, up to nibble 16
+//	R = 16 random nibbles (8 random bytes)
+//
+// PAN field (32 nibbles): M A1 ... An 0 ... 0, where M is the PAN length minus
+// 12 (0 to 7) and the PAN is 12 to 19 digits, left-justified and zero-padded.
+//
+// Encipherment: block A = E(plain PIN field); block B = A XOR PAN field; the
+// PIN block is E(block B). Decipherment reverses the steps.
 type iso4Object struct {
-	Filler string
-
-	cipher      Cipher
-	format      string
-	debugWriter io.Writer
+	cipher Cipher
+	format string
 }
 
-// Padding returns padding pattern
-func (i *iso4Object) padding(pin string) (string, error) {
-	// both pinBlock and panBlock are 16 bytes (128 bits)
-	if len(pin) < 4 || len(pin) > 12 {
-		return "", fmt.Errorf("pin length must be between 4 and 12 digits")
-	}
-
-	return strings.Repeat(i.Filler, 16-len(pin)-2), nil
-}
-
+// SetCipher replaces the cipher used to encipher and decipher PIN blocks. A
+// nil cipher is ignored.
 func (i *iso4Object) SetCipher(cipher Cipher) {
-	if i == nil {
+	if i == nil || cipher == nil {
 		return
 	}
-
-	if cipher == nil {
-		return
-	}
-
 	i.cipher = cipher
 }
 
-// SetDebugWriter will set writer for getting output message of encoding and decoding logic
-func (i *iso4Object) SetDebugWriter(writer io.Writer) {
-	i.debugWriter = tabwriter.NewWriter(writer, 0, 0, 2, ' ', 0)
+// panField returns the 32-nibble ISO-4 PAN field packed into 16 bytes. The
+// result belongs to the caller, who must clear it.
+func (i *iso4Object) panField(account []byte) ([]byte, error) {
+	if len(account) < 12 || len(account) > 19 {
+		return nil, fmt.Errorf("account length must be between 12 and 19 digits")
+	}
+	nibbles := make([]byte, 2*iso4BlockLen)
+	defer wipe(nibbles)
+	nibbles[0] = byte((len(account) - 12) & 0x0F) // 0..7, checked above
+	if err := digitNibbles(nibbles[1:], account, "account"); err != nil {
+		return nil, err
+	}
+	return pack(nibbles), nil
 }
 
-// Encode returns an ISO-4 formatted and encrypted PIN block
-func (i *iso4Object) Encode(pin, account string) (string, error) {
-	pad, err := i.padding(pin)
+// apply runs one cipher operation and returns its output in a new slice of
+// exactly one block, clearing the slice the cipher returned. A cipher that
+// returns the wrong length is reported as an error rather than causing a panic
+// later.
+func apply(op func([]byte) ([]byte, error), in []byte, step string) ([]byte, error) {
+	out, err := op(in)
 	if err != nil {
-		return "", err
+		wipe(out)
+		return nil, fmt.Errorf("%s: %w", step, err)
 	}
-
-	randomBytes := make([]byte, 8)
-	_, err = rand.Read(randomBytes)
-	if err != nil {
-		return "", fmt.Errorf("generating random bytes: %w", err)
+	if len(out) != iso4BlockLen {
+		wipe(out)
+		return nil, fmt.Errorf("%s: cipher returned %d bytes, want %d", step, len(out), iso4BlockLen)
 	}
-
-	pinBlock := fmt.Sprintf("4%X%s%s%X", len(pin), pin, pad, randomBytes)
-
-	rawPinBlock, err := hex.DecodeString(pinBlock)
-	if err != nil {
-		return "", fmt.Errorf("decoding pinBlock: %w", err)
-	}
-
-	blockA, err := i.cipher.Encrypt(rawPinBlock)
-	if err != nil {
-		return "", fmt.Errorf("encrypting pinBlock: %w", err)
-	}
-
-	if len(account) < 12 || len(account) > 19 {
-		return "", fmt.Errorf("account length must be between 12 and 19 digits")
-	}
-
-	// 4-bit field with permissible values 0000 (zero) to 0111 (7) indicate
-	// a PAN length of 12 plus the value of the field (ranging then from 12
-	// to 19). If the PAN is less than 12 digits, the digits are right
-	// justified and padded to the left with zeros, and M is set to 0;
-	controlField := fmt.Sprintf("%X", len(account)-12)
-
-	panBlock := fmt.Sprintf("%s%s%s", controlField, account, strings.Repeat("0", 32-len(account)-1))
-
-	rawPanBlock, err := hex.DecodeString(panBlock)
-	if err != nil {
-		return "", fmt.Errorf("decoding panBlock: %w", err)
-	}
-
-	blockB, err := xor(rawPanBlock, blockA)
-	if err != nil {
-		return "", fmt.Errorf("xor-ing block A and pan block: %w", err)
-	}
-
-	encryptedPinBlock, err := i.cipher.Encrypt(blockB)
-	if err != nil {
-		return "", fmt.Errorf("encrypting block B: %w", err)
-	}
-
-	// write encode information
-	if i.debugWriter != nil {
-		tw := i.debugWriter
-		fmt.Fprintf(tw, "PIN block encode operation finished\n")
-		fmt.Fprintf(tw, "%s\n", strings.Repeat("*", 36))
-		fmt.Fprintf(tw, "PAN\t: %s\n", account)
-		fmt.Fprintf(tw, "PIN\t: %s\n", pin)
-		if len(pad) == 0 {
-			fmt.Fprintf(tw, "PAD\t: N/A\n")
-		} else {
-			fmt.Fprintf(tw, "PAD\t: %s\n", pad)
-		}
-		fmt.Fprintf(tw, "Format\t: %s\n", i.format)
-		fmt.Fprintf(tw, "%s\n", strings.Repeat("-", 36))
-		fmt.Fprintf(tw, "PAN block\t: %s\n", strings.ToUpper(panBlock))
-		fmt.Fprintf(tw, "PIN block\t: %s\n", strings.ToUpper(pinBlock))
-		fmt.Fprintf(tw, "Encrypted PIN block\t: %s\n", fmt.Sprintf("%X", encryptedPinBlock))
-		tw.Write([]byte("\n"))
-	}
-
-	return fmt.Sprintf("%X", encryptedPinBlock), nil
+	result := make([]byte, iso4BlockLen)
+	copy(result, out)
+	wipe(out)
+	return result, nil
 }
 
-// Decode returns the PIN from an ISO-4 encrypted PIN block
-func (i *iso4Object) Decode(pinBlock, account string) (string, error) {
-	if len(pinBlock) != 32 {
-		return "", fmt.Errorf("pinBlock must be 32 hex characters (16 bytes)")
+// Encode returns the 16-byte enciphered PIN block for pin and account. See
+// Format.
+func (i *iso4Object) Encode(pin, account []byte) ([]byte, error) {
+	if i.cipher == nil {
+		return nil, fmt.Errorf("iso-4 requires a cipher")
+	}
+	if len(pin) < 4 || len(pin) > 12 {
+		return nil, fmt.Errorf("pin length must be between 4 and 12 digits")
 	}
 
-	encryptedPinBlock, err := hex.DecodeString(pinBlock)
+	panField, err := i.panField(account)
 	if err != nil {
-		return "", fmt.Errorf("decoding pinBlock: %w", err)
+		return nil, err
+	}
+	defer wipe(panField)
+
+	nibbles := make([]byte, 2*iso4BlockLen)
+	defer wipe(nibbles)
+	nibbles[0] = 0x4
+	nibbles[1] = byte(len(pin) & 0x0F) // 4..12, checked above
+	if err := digitNibbles(nibbles[2:], pin, "pin"); err != nil {
+		return nil, err
+	}
+	for n := 2 + len(pin); n < fieldNibbles; n++ {
+		nibbles[n] = 0xA
+	}
+	if err := randomFill(nibbles[fieldNibbles:], anyNibble); err != nil {
+		return nil, err
 	}
 
-	blockB, err := i.cipher.Decrypt(encryptedPinBlock)
+	pinField := pack(nibbles)
+	defer wipe(pinField)
+
+	blockA, err := apply(i.cipher.Encrypt, pinField, "encrypting pin field")
 	if err != nil {
-		return "", fmt.Errorf("decrypting pinBlock: %w", err)
+		return nil, err
+	}
+	defer wipe(blockA)
+
+	blockB := make([]byte, iso4BlockLen)
+	defer wipe(blockB)
+	xorInto(blockB, blockA, panField)
+
+	return apply(i.cipher.Encrypt, blockB, "encrypting block B")
+}
+
+// Decode returns the PIN from a 16-byte enciphered PIN block. See Format.
+func (i *iso4Object) Decode(pinBlock, account []byte) ([]byte, error) {
+	if i.cipher == nil {
+		return nil, fmt.Errorf("iso-4 requires a cipher")
+	}
+	if len(pinBlock) != iso4BlockLen {
+		return nil, fmt.Errorf("pin block must be %d bytes", iso4BlockLen)
 	}
 
-	if len(account) < 12 || len(account) > 19 {
-		return "", fmt.Errorf("account length must be between 12 and 19 digits")
-	}
-
-	controlField := fmt.Sprintf("%X", len(account)-12)
-
-	panBlock := fmt.Sprintf("%s%s%s", controlField, account, strings.Repeat("0", 32-len(account)-1))
-
-	rawPanBlock, err := hex.DecodeString(panBlock)
+	panField, err := i.panField(account)
 	if err != nil {
-		return "", fmt.Errorf("decoding panBlock: %w", err)
+		return nil, err
 	}
+	defer wipe(panField)
 
-	blockA, err := xor(rawPanBlock, blockB)
+	// A copy, so a cipher that works in place cannot modify the caller's block.
+	encrypted := make([]byte, iso4BlockLen)
+	copy(encrypted, pinBlock)
+	defer wipe(encrypted)
+
+	blockB, err := apply(i.cipher.Decrypt, encrypted, "decrypting pin block")
 	if err != nil {
-		return "", fmt.Errorf("xor-ing block B and pan block: %w", err)
+		return nil, err
 	}
+	defer wipe(blockB)
 
-	rawPinBlock, err := i.cipher.Decrypt(blockA)
+	blockA := make([]byte, iso4BlockLen)
+	defer wipe(blockA)
+	xorInto(blockA, blockB, panField)
+
+	pinField, err := apply(i.cipher.Decrypt, blockA, "decrypting block A")
 	if err != nil {
-		return "", fmt.Errorf("decrypting block A: %w", err)
+		return nil, err
 	}
+	defer wipe(pinField)
 
-	plainPinBlock := hex.EncodeToString(rawPinBlock)
+	nibbles := unpack(pinField)
+	defer wipe(nibbles)
 
-	// rawPinBlock should now be the original pinBlock, we'll parse it to get the PIN.
-	if len(plainPinBlock) < 2 {
-		return "", fmt.Errorf("plain pin block too short")
+	if nibbles[0] != 0x4 {
+		return nil, fmt.Errorf("format is different")
 	}
-	pinLength, err := strconv.ParseInt(string(plainPinBlock[1]), 16, 64)
-	if err != nil {
-		return "", fmt.Errorf("parsing pin length: %w", err)
+	pinLength := int(nibbles[1])
+	if pinLength < 4 || pinLength > 12 {
+		return nil, fmt.Errorf("invalid pin length %d", pinLength)
 	}
-	if pinLength < 4 || pinLength > 12 || 2+int(pinLength) > len(plainPinBlock) {
-		return "", fmt.Errorf("invalid pin length %d", pinLength)
-	}
-
-	pin := string(plainPinBlock[2 : 2+pinLength])
-
-	// write decode information
-	if i.debugWriter != nil {
-		tw := i.debugWriter
-		fmt.Fprintf(tw, "PIN block decode operation finished\n")
-		fmt.Fprintf(tw, "%s\n", strings.Repeat("*", 36))
-		fmt.Fprintf(tw, "Formatted PAN block\t: %s\n", strings.ToUpper(panBlock))
-		fmt.Fprintf(tw, "Formatted PIN block\t: %s\n", strings.ToUpper(plainPinBlock))
-		if pad, _ := i.padding(pin); len(pad) == 0 {
-			fmt.Fprintf(tw, "PAD\t: N/A\n")
-		} else {
-			fmt.Fprintf(tw, "PAD\t: %s\n", pad)
+	for _, n := range nibbles[2+pinLength : fieldNibbles] {
+		if n != 0xA {
+			return nil, fmt.Errorf("invalid fill in pin block")
 		}
-		fmt.Fprintf(tw, "Format\t: %s\n", i.format)
-		fmt.Fprintf(tw, "%s\n", strings.Repeat("-", 36))
-		fmt.Fprintf(tw, "Decoded PIN\t: %s\n", pin)
-		tw.Write([]byte("\n"))
 	}
-
-	return pin, nil
+	return pinFromNibbles(nibbles[2 : 2+pinLength])
 }

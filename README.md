@@ -33,7 +33,7 @@ This project uses [Go Modules](https://go.dev/blog/using-go-modules) and Go v1.1
 ### Installation
 
 ```
-go get github.com/moov-io/pinblock
+go get github.com/moov-io/pinblock@latest
 ```
 
 ### Supported pin blocks
@@ -48,103 +48,81 @@ go get github.com/moov-io/pinblock
 
 ## Usage
 
-All the pin block types implemented based on two different interfaces
-```
-type FormatA interface {
-	SetDebugWriter(writer io.Writer)
-	Encode(pin, account string) (string, error)
-	Decode(pinBlock, account string) (string, error)
-}
+Every format implements one interface. PIN, PAN and PIN block are all `[]byte`:
 
-type FormatB interface {
-	SetDebugWriter(writer io.Writer)
-	Encode(pin string) (string, error)
-	Decode(pinBlock string) (string, error)
+```go
+type Format interface {
+	Encode(pin, account []byte) ([]byte, error)
+	Decode(pinBlock, account []byte) ([]byte, error)
 }
 ```
-FormatA used pin and pan code for encrypt operation and decode operation, but FormatB used pin code only.
-Generally user can not access code block instance (struct instance), should use via interface 
 
-There are some global functions to get pin blocker instance
+- `pin` is the PIN as ASCII decimal digits, for example `[]byte("1234")`.
+- `account` is the PAN as ASCII decimal digits. Formats that do not use the PAN
+  (ISO-1, ISO-2, OEM-1, ECI-2, ECI-3, ECI-4, VISA-2, VISA-3) ignore it; pass `nil`.
+- A PIN block is binary: 8 bytes, or 16 bytes for ISO-4. Hex-encode it yourself
+  if a message needs text.
 
-```
-func NewISO0() FormatA
-func NewISO1() FormatB
-func NewISO2() FormatB
-func NewISO3() FormatA
-func NewISO4(cipher Cipher) FormatA
-func NewANSIX98() FormatA
-func NewOEM1() FormatB
-func NewECI1() FormatA
-func NewECI2() FormatB
-func NewECI3() FormatB
-func NewECI4() FormatB
-func NewVISA1() FormatA
-func NewVISA2() FormatB
-func NewVISA3() FormatB
-func NewVISA4() FormatA
-```
+Constructors:
 
-To use a set of method signatures according to interface is very easy
-```
-		pin := "1234"
-		account := "5432101234567891"
-		
-		iso0 := formats.NewISO0()
-		pinBlock, err := iso0.Encode(pin, account)
-		...
-		pin, err := iso0.Decode(pinBlock, account)
-		...
+```go
+func NewFormatter(bType string) (Format, error) // "ISO-0", "ISO-1", ..., "VISA4"
+func NewISO0() Format
+func NewISO1() Format
+func NewISO2() Format
+func NewISO3() Format
+func NewISO4(cipher Cipher) Format
+func NewANSIX98() Format
+func NewOEM1() Format
+func NewECI1() Format
+func NewECI2() Format
+func NewECI3() Format
+func NewECI4() Format
+func NewVISA1() Format
+func NewVISA2() Format
+func NewVISA3() Format
+func NewVISA4() Format
 ```
 
-Especially pin block of iso-4 required that pin block is encrypted with AES key.
-To support this type, encryption logic implemented in moov pinblock package
-```
-		cipher, err := encryption.NewAesECB([]byte("1234567890123456"))
-		iso4 := NewISO4(cipher)
-		pinBlock, err := iso4.Encode("12344", "432198765432109870")
-		pin, err := iso4.Decode(pinBlock, "432198765432109870")
+```go
+pin := []byte("1234")
+account := []byte("5432101234567891")
+
+iso0 := formats.NewISO0()
+pinBlock, err := iso0.Encode(pin, account) // 04 12 15 FE DC BA 98 76
+...
+decoded, err := iso0.Decode(pinBlock, account)
+...
+clear(pin)
+clear(decoded)
 ```
 
-User can get debug messages that describe operation status intuitively with SetDebugWriter() function.
-```
-		pin := "1234"
-		account := "5432101234567891"
-		iso0 := formats.NewISO0()
-		out := bytes.NewBuffer([]byte{})
-		iso0.SetDebugWriter(out)
-		pinBlock, err := iso0.Encode(pin, account)
-		fmt.Println(out.String())
-		
-		out.Reset()
-		
-		pin, err := iso0.Decode(pinBlock, account)
-		fmt.Println(out.String())
-		
+ISO-4 enciphers the PIN block with AES:
+
+```go
+cipher, err := encryption.NewAesECB(key)
+iso4 := formats.NewISO4(cipher)
+pinBlock, err := iso4.Encode([]byte("12344"), []byte("432198765432109870"))
+pin, err := iso4.Decode(pinBlock, []byte("432198765432109870"))
 ```
 
-Expected output messages from above code.
-```
-PIN block encode operation finished
-************************************
-PAN     : 5432101234567891
-PIN     : 1234
-PAD     : FFFFFFFFFF
-Format  : Format 0 (ISO-0)
-------------------------------------
-Formatted PIN block  : 041215FEDCBA9876
-Formatted PAN block  : 0000210123456789
+### Handling PINs in memory
 
-PIN block decode operation finished
-************************************
-Formatted PAN block  : 0000210123456789
-Formatted PIN block  : 041234FFFFFFFFFF
-PAD                  : FFFFFFFFFF
-Format               : Format 0 (ISO-0)
-------------------------------------
-Decoded PIN  : 1234
+A Go `string` cannot be overwritten, so a PIN that becomes a string stays in
+memory until the garbage collector reuses it. This package never converts a
+PIN, PAN or PIN block to a string. Neither method modifies its arguments, and
+every result is a new slice the caller owns and should clear with `clear()` once
+it is no longer needed.
 
-```
+Every intermediate the package creates (the PIN field, the PAN field, XOR
+results, random fill and cipher outputs) is cleared before the method returns,
+including when it returns an error. Copies the package cannot reach are not
+cleared: the AES key schedule inside `crypto/aes`, and anything your own code or
+a `Cipher` implementation copies.
+
+Decode checks the block's structure (format nibble, PIN length, decimal digits
+and, for ISO formats, the fill) and returns an error for a malformed block, which
+is also what a block decrypted under the wrong key looks like.
 
 ## Docs
 
