@@ -1,4 +1,8 @@
 {
+  "baseBranches": [
+    "master",
+    "v0"
+  ],
   "extends": [
     "config:base"
   ],
