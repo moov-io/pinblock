@@ -18,8 +18,10 @@ import (
 //   - A PIN block is binary: 8 bytes, or 16 bytes for ISO-4.
 //
 // Neither method modifies its arguments. Each returns a new slice that belongs
-// to the caller, who should clear it (for example with the clear builtin) once
-// it is no longer needed. Every intermediate the method creates (the PIN field,
+// to the caller, who should clear it with pinblock.Clear once it is no longer
+// needed. Clear the PIN block too: for ISO-0 and ISO-3 it is the PIN field XORed
+// with the PAN, so anyone holding the PAN can recover the PIN. Every
+// intermediate the method creates (the PIN field,
 // the PAN field, XOR results and random fill) is cleared before it returns,
 // including when it returns an error.
 type Format interface {

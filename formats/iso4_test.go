@@ -64,8 +64,7 @@ func TestISO4(t *testing.T) {
 	})
 }
 
-// shortCipher returns the wrong length, which used to reach a slice index or
-// an XOR length mismatch; now it is a plain error.
+// shortCipher returns the wrong length, which must be an error.
 type shortCipher struct{}
 
 func (shortCipher) Encrypt(p []byte) ([]byte, error) { return p[:8], nil }

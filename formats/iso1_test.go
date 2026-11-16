@@ -32,8 +32,7 @@ func TestISO1(t *testing.T) {
 		require.Equal(t, []byte("123456789012"), pin)
 	})
 
-	// ISO 9564-1 allows 4 to 12 PIN digits. A longer PIN used to be truncated
-	// silently, and a block with a length nibble outside 4..12 was decoded.
+	// ISO 9564-1 allows 4 to 12 PIN digits.
 	t.Run("pin length", func(t *testing.T) {
 		_, err := formats.NewISO1().Encode([]byte("1234567890123"), nil)
 		require.Error(t, err)
@@ -43,6 +42,22 @@ func TestISO1(t *testing.T) {
 		require.ErrorContains(t, err, "invalid pin length")
 		_, err = formats.NewISO1().Decode(block(t, "1E12345678901234"), nil)
 		require.ErrorContains(t, err, "invalid pin length")
+	})
+
+	// Format 1 fill is random 0x0 to 0xF. Across 20 blocks (200 fill nibbles)
+	// at least one is A to F unless the fill is limited to decimal digits.
+	t.Run("fill is random 0-F", func(t *testing.T) {
+		sawLetter := false
+		for range 20 {
+			pinBlock, err := formats.NewISO1().Encode(testPIN, nil)
+			require.NoError(t, err)
+			for _, c := range hexOf(pinBlock)[6:] {
+				if c >= 'A' && c <= 'F' {
+					sawLetter = true
+				}
+			}
+		}
+		require.True(t, sawLetter, "ISO-1 fill never used A-F")
 	})
 
 	t.Run("round trip", func(t *testing.T) {

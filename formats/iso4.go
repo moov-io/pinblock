@@ -50,22 +50,20 @@ func (i *iso4Object) panField(account []byte) ([]byte, error) {
 }
 
 // apply runs one cipher operation and returns its output in a new slice of
-// exactly one block, clearing the slice the cipher returned. A cipher that
-// returns the wrong length is reported as an error rather than causing a panic
-// later.
+// exactly one block. It clears the whole capacity of the slice the cipher
+// returned, so a cipher that returns part of a larger buffer has all of it
+// cleared. A cipher that returns the wrong length is an error.
 func apply(op func([]byte) ([]byte, error), in []byte, step string) ([]byte, error) {
 	out, err := op(in)
+	defer wipe(out[:cap(out)])
 	if err != nil {
-		wipe(out)
 		return nil, fmt.Errorf("%s: %w", step, err)
 	}
 	if len(out) != iso4BlockLen {
-		wipe(out)
 		return nil, fmt.Errorf("%s: cipher returned %d bytes, want %d", step, len(out), iso4BlockLen)
 	}
 	result := make([]byte, iso4BlockLen)
 	copy(result, out)
-	wipe(out)
 	return result, nil
 }
 

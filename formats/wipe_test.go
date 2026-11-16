@@ -125,6 +125,14 @@ func TestISO0_ClearsFields(t *testing.T) {
 func TestISO1_ClearsFields(t *testing.T) {
 	t.Run("encode", func(t *testing.T) {
 		r := recordWipes(t)
+		pinBlock, err := NewISO1().Encode(wipePIN, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, r.count(unpack(pinBlock)), "clear PIN field")
+		require.Equal(t, 1, r.countLen(10+16), "random fill buffer")
+		r.requireAllZero(t)
+	})
+	t.Run("ISO-2 encode", func(t *testing.T) {
+		r := recordWipes(t)
 		pinBlock, err := NewISO2().Encode(wipePIN, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, r.count(unpack(pinBlock)), "clear PIN field")
@@ -271,9 +279,33 @@ func TestISO4_ClearsCipherOutputOnError(t *testing.T) {
 	require.Equal(t, 1, r.count([]byte{1, 2, 3}), "output of a failed cipher call")
 	r.requireAllZero(t)
 
+	// shortCipher returns the first 8 bytes of the 16-byte PIN field it was
+	// given; the whole capacity behind that slice is cleared.
 	r = recordWipes(t)
 	_, err = NewISO4(shortCipher{}).Encode(wipePIN, account)
 	require.ErrorContains(t, err, "cipher returned 8 bytes")
-	require.Equal(t, 1, r.countLen(8), "short cipher output")
+	require.Zero(t, r.countLen(8), "only len(out) was cleared")
 	r.requireAllZero(t)
+}
+
+// scratchCipher returns its result as the first block of a larger buffer it
+// owns, with key-derived bytes after it.
+type scratchCipher struct{ last []byte }
+
+func (c *scratchCipher) op(in []byte) ([]byte, error) {
+	buf := bytes.Repeat([]byte{0xA5}, 64)
+	copy(buf, in)
+	c.last = buf
+	return buf[:16], nil
+}
+
+// apply clears the whole capacity a cipher returns, not just the first block.
+func TestApply_ClearsFullCapacity(t *testing.T) {
+	c := &scratchCipher{}
+	r := recordWipes(t)
+	out, err := apply(c.op, make([]byte, 16), "test")
+	require.NoError(t, err)
+	require.Len(t, out, 16)
+	require.Equal(t, make([]byte, 64), c.last, "the cipher's whole buffer is cleared")
+	require.Equal(t, 1, r.countLen(64))
 }

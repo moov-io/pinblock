@@ -93,8 +93,11 @@ pinBlock, err := iso0.Encode(pin, account) // 04 12 15 FE DC BA 98 76
 ...
 decoded, err := iso0.Decode(pinBlock, account)
 ...
-clear(pin)
-clear(decoded)
+// import "github.com/moov-io/pinblock"
+pinblock.Clear(pin)
+pinblock.Clear(account)
+pinblock.Clear(pinBlock) // an ISO-0 block XORed with the PAN gives back the PIN
+pinblock.Clear(decoded)
 ```
 
 ISO-4 enciphers the PIN block with AES:
@@ -111,14 +114,20 @@ pin, err := iso4.Decode(pinBlock, []byte("432198765432109870"))
 A Go `string` cannot be overwritten, so a PIN that becomes a string stays in
 memory until the garbage collector reuses it. This package never converts a
 PIN, PAN or PIN block to a string. Neither method modifies its arguments, and
-every result is a new slice the caller owns and should clear with `clear()` once
-it is no longer needed.
+every result is a new slice the caller owns and should clear with
+`pinblock.Clear` once it is no longer needed. Prefer it to the `clear` builtin: a
+`clear` with no later read is a dead store the compiler may remove, while
+`pinblock.Clear` always writes. Clear the PIN block as well as the PIN: for ISO-0
+and ISO-3 the block is the PIN field XORed with the PAN.
 
 Every intermediate the package creates (the PIN field, the PAN field, XOR
 results, random fill and cipher outputs) is cleared before the method returns,
 including when it returns an error. Copies the package cannot reach are not
-cleared: the AES key schedule inside `crypto/aes`, and anything your own code or
-a `Cipher` implementation copies.
+cleared: the AES key schedule inside `crypto/aes`, copies in CPU registers or on
+goroutine stacks, and anything your own code or a `Cipher` implementation copies.
+A host that needs registers and stacks erased can wrap its calls in
+`runtime/secret.Do`, which is experimental and only erases on linux/amd64 and
+linux/arm64.
 
 Decode checks the block's structure (format nibble, PIN length, decimal digits
 and, for ISO formats, the fill) and returns an error for a malformed block, which

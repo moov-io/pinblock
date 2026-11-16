@@ -18,6 +18,15 @@ import "runtime"
 // compiler cannot treat the clear as a dead store to a buffer that is about to
 // go out of scope.
 //
+// This is best-effort heap hygiene. It zeroes len(b) bytes only, so a caller
+// that wants a slice's whole backing array cleared passes b[:cap(b)], as the
+// ISO-4 format does for what a Cipher returns. It does not reach copies of the
+// data in CPU registers or on goroutine stacks. A host that needs those erased
+// too can wrap its Encode and Decode calls in runtime/secret.Do; note that
+// package is experimental, needs GOEXPERIMENT=runtimesecret, and erases
+// registers and stacks only on linux/amd64 and linux/arm64 (elsewhere Do just
+// calls its function).
+//
 //go:noinline
 func Bytes(b []byte) {
 	clear(b)

@@ -13,8 +13,9 @@ type AesECB struct {
 }
 
 // NewAesECB returns an AesECB for key (16, 24 or 32 bytes). crypto/aes copies
-// the key into its own key schedule, so the caller may clear key afterwards;
-// that schedule is held by crypto/aes and cannot be cleared.
+// the key into its own key schedule, so the caller may clear key with
+// pinblock.Clear afterwards; that schedule is held by crypto/aes and cannot be
+// cleared.
 func NewAesECB(key []byte) (*AesECB, error) {
 	cipher, err := aes.NewCipher(key)
 	if err != nil {
