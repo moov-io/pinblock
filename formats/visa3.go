@@ -1,104 +1,79 @@
 package formats
 
-import (
-	"fmt"
-	"io"
-	"strings"
-	"text/tabwriter"
-)
+import "fmt"
 
+// visa3Delimiter is the nibble that ends the PIN in a VISA-3 block.
+const visa3Delimiter = 0xF
+
+// visa3Object implements VISA-3. It does not use the PAN.
+//
+// PIN block (16 nibbles): the PIN (4 to 12 digits), the delimiter 0xF, then
+// one random value from 0xA to 0xF repeated to the end.
 type visa3Object struct {
-	format      string
-	debugWriter io.Writer
+	debugOutput
+
+	format string
 }
 
-const delimiter = "F"
-
-// Padding returns padding pattern
-func (i *visa3Object) padding(pin string) (string, error) {
-	if len(pin) < 4 || len(pin) > 12 {
+// Encode returns the 16-character PIN block for pin. account is not used. A
+// PIN longer than 12 digits is truncated on the right, as the format defines.
+// See Format.
+func (i *visa3Object) Encode(pin, _ string) (string, error) {
+	if len(pin) < 4 {
 		return "", fmt.Errorf("pin length must be between 4 and 12 digits")
 	}
-
-	filler, err := randomLetters(1, hexCharacters)
-	if err != nil {
+	if err := checkDigits(pin, "pin"); err != nil {
 		return "", err
 	}
+	pin = pin[:min(len(pin), 12)]
 
-	return delimiter + strings.Repeat(filler, 16-len(pin)-1), nil
-}
+	nibbles := make([]byte, fieldNibbles)
+	defer wipe(nibbles)
+	_ = digitNibbles(nibbles, pin, "pin")
+	nibbles[len(pin)] = visa3Delimiter
 
-// SetDebugWriter will set writer for getting output message of encoding and decoding logic
-func (i *visa3Object) SetDebugWriter(writer io.Writer) {
-	i.debugWriter = tabwriter.NewWriter(writer, 0, 0, 2, ' ', 0)
-}
-
-// Encode returns the OEM-1 PIN block for the given PIN
-func (i *visa3Object) Encode(pin, account string) (string, error) {
-	isTruncated := false
-
-	// A PIN that is longer than 12 digits is truncated on the right.
-	if len(pin) > 12 {
-		pin = pin[:12]
-		isTruncated = true
-	}
-
-	pad, err := i.padding(pin)
-	if err != nil {
+	filler := make([]byte, 1)
+	defer wipe(filler)
+	if err := randomFill(filler, letterNibble); err != nil {
 		return "", err
 	}
-
-	// Pad value has a 4-bit value from X’0′ to X’F’ and must be different from any PIN digit.
-	// The number of pad values for this format is in the range from 4 to 12, and all the pad values must have the same value.
-	pinBlock := fmt.Sprintf("%s%s", pin, pad)
-
-	// write encode information
-	if i.debugWriter != nil {
-		tw := i.debugWriter
-		fmt.Fprintf(tw, "PIN block encode operation finished\n")
-		if isTruncated {
-			fmt.Fprintf(tw, "The pin is truncated on the right as 12 digits\n")
-		}
-		fmt.Fprintf(tw, "%s\n", strings.Repeat("*", 36))
-		fmt.Fprintf(tw, "PIN\t: %s\n", pin)
-		if pad == "" {
-			fmt.Fprintf(tw, "PAD\t: N/A\n")
-		} else {
-			fmt.Fprintf(tw, "PAD\t: %s\n", pad)
-		}
-		fmt.Fprintf(tw, "Format\t: %s\n", i.format)
-		fmt.Fprintf(tw, "%s\n", strings.Repeat("-", 36))
-		fmt.Fprintf(tw, "Formatted PIN block\t: %s\n", strings.ToUpper(pinBlock))
-		tw.Write([]byte("\n"))
+	for n := len(pin) + 1; n < fieldNibbles; n++ {
+		nibbles[n] = filler[0]
 	}
+	pinBlock := nibblesHex(nibbles)
 
-	return strings.ToUpper(pinBlock), nil
+	i.note("encode", i.format)
+	return pinBlock, nil
 }
 
-func (i *visa3Object) Decode(pinBlock, account string) (string, error) {
-	if len(pinBlock) != 16 {
+// Decode returns the PIN from a 16-character PIN block. account is not used.
+// See Format.
+func (i *visa3Object) Decode(pinBlock, _ string) (string, error) {
+	if len(pinBlock) != fieldNibbles {
 		return "", fmt.Errorf("pin block must be 16 characters")
 	}
 
-	index := strings.Index(pinBlock, delimiter)
+	nibbles, err := hexNibbles(pinBlock)
+	if err != nil {
+		return "", err
+	}
+	defer wipe(nibbles)
+
+	index := -1
+	for n, v := range nibbles {
+		if v == visa3Delimiter {
+			index = n
+			break
+		}
+	}
 	if index < 4 || index > 12 {
 		return "", fmt.Errorf("unable to parse pin block")
 	}
-
-	pin := pinBlock[:index]
-	// write decode information
-	if i.debugWriter != nil {
-		tw := i.debugWriter
-		fmt.Fprintf(tw, "PIN block decode operation finished\n")
-		fmt.Fprintf(tw, "%s\n", strings.Repeat("*", 36))
-		fmt.Fprintf(tw, "Formatted PIN block\t: %s\n", strings.ToUpper(pinBlock))
-		pad := pinBlock[index+1:]
-		fmt.Fprintf(tw, "PAD\t: %s\n", pad)
-		fmt.Fprintf(tw, "Format\t: %s\n", i.format)
-		fmt.Fprintf(tw, "%s\n", strings.Repeat("-", 36))
-		fmt.Fprintf(tw, "Decoded PIN\t: %s\n", pin)
-		tw.Write([]byte("\n"))
+	pin, err := pinFromNibbles(nibbles[:index])
+	if err != nil {
+		return "", err
 	}
 
+	i.note("decode", i.format)
 	return pin, nil
 }

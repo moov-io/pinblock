@@ -50,11 +50,7 @@ func TestVISA3(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, pinBlock, "1234F")
 
-		expectedOutput := `PIN block encode operation finished
-************************************
-PIN     : 1234
-PAD     : `
-		require.Contains(t, out.String(), expectedOutput)
+		requireDebugNote(t, out.String(), "encode", "VISA-3")
 	})
 
 	t.Run("decode logs", func(t *testing.T) {
@@ -67,15 +63,6 @@ PAD     : `
 		require.NoError(t, err)
 		require.Equal(t, "123456789012", pin)
 
-		expectedOutput := `PIN block decode operation finished
-************************************
-Formatted PIN block  : 123456789012FAAA
-PAD                  : AAA
-Format               : VISA-3
-------------------------------------
-Decoded PIN  : 123456789012
-
-`
-		require.Equal(t, expectedOutput, out.String())
+		requireDebugNote(t, out.String(), "decode", "VISA-3")
 	})
 }
