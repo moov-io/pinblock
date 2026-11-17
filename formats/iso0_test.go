@@ -36,18 +36,7 @@ func TestISO0(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "041215FEDCBA9876", pinBlock)
 
-		expectedOutput := `PIN block encode operation finished
-************************************
-PAN     : 5432101234567891
-PIN     : 1234
-PAD     : FFFFFFFFFF
-Format  : Format 0 (ISO-0)
-------------------------------------
-Formatted PIN block  : 041215FEDCBA9876
-Formatted PAN block  : 0000210123456789
-
-`
-		require.Equal(t, expectedOutput, out.String())
+		requireDebugNote(t, out.String(), "encode", "Format 0 (ISO-0)")
 	})
 
 	t.Run("bad pin length", func(t *testing.T) {
@@ -111,11 +100,7 @@ func TestISO3(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, pinBlock, "341215")
 
-		expectedOutput := `PIN block encode operation finished
-************************************
-PAN     : 5432101234567891
-PIN     : 1234`
-		require.Contains(t, out.String(), expectedOutput)
+		requireDebugNote(t, out.String(), "encode", "Format 3 (ISO-3)")
 	})
 
 	t.Run("bad pin length", func(t *testing.T) {
@@ -178,17 +163,7 @@ func TestISO0_Decode(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "1234", pin)
 
-		expectedOutput := `PIN block decode operation finished
-************************************
-Formatted PAN block  : 0000210123456789
-Formatted PIN block  : 041234FFFFFFFFFF
-PAD                  : FFFFFFFFFF
-Format               : Format 0 (ISO-0)
-------------------------------------
-Decoded PIN  : 1234
-
-`
-		require.Equal(t, expectedOutput, out.String())
+		requireDebugNote(t, out.String(), "decode", "Format 0 (ISO-0)")
 	})
 
 	t.Run("bad pin block length", func(t *testing.T) {
@@ -249,11 +224,7 @@ func TestISO3_Decode(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "1234", pin)
 
-		expectedOutput := `PIN block decode operation finished
-************************************
-Formatted PAN block  : 0000210123456789
-Formatted PIN block  : 341234FFFFFFFFFF`
-		require.Contains(t, out.String(), expectedOutput)
+		requireDebugNote(t, out.String(), "decode", "Format 3 (ISO-3)")
 	})
 
 	t.Run("bad pin block length", func(t *testing.T) {
@@ -301,18 +272,7 @@ func TestANSIX98(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "041215FEDCBA9876", pinBlock)
 
-		expectedOutput := `PIN block encode operation finished
-************************************
-PAN     : 5432101234567891
-PIN     : 1234
-PAD     : FFFFFFFFFF
-Format  : ANSI X9.8
-------------------------------------
-Formatted PIN block  : 041215FEDCBA9876
-Formatted PAN block  : 0000210123456789
-
-`
-		require.Equal(t, expectedOutput, out.String())
+		requireDebugNote(t, out.String(), "encode", "ANSI X9.8")
 	})
 }
 
@@ -330,18 +290,7 @@ func TestECI1(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "041215FEDCBA9876", pinBlock)
 
-		expectedOutput := `PIN block encode operation finished
-************************************
-PAN     : 5432101234567891
-PIN     : 1234
-PAD     : FFFFFFFFFF
-Format  : ECI-1
-------------------------------------
-Formatted PIN block  : 041215FEDCBA9876
-Formatted PAN block  : 0000210123456789
-
-`
-		require.Equal(t, expectedOutput, out.String())
+		requireDebugNote(t, out.String(), "encode", "ECI-1")
 	})
 }
 
@@ -359,18 +308,7 @@ func TestVISA1(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "041215FEDCBA9876", pinBlock)
 
-		expectedOutput := `PIN block encode operation finished
-************************************
-PAN     : 5432101234567891
-PIN     : 1234
-PAD     : FFFFFFFFFF
-Format  : VISA-1
-------------------------------------
-Formatted PIN block  : 041215FEDCBA9876
-Formatted PAN block  : 0000210123456789
-
-`
-		require.Equal(t, expectedOutput, out.String())
+		requireDebugNote(t, out.String(), "encode", "VISA-1")
 	})
 }
 
@@ -388,18 +326,7 @@ func TestVISA4(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "041215FEDCBA9876", pinBlock)
 
-		expectedOutput := `PIN block encode operation finished
-************************************
-PAN     : 5432101234567891
-PIN     : 1234
-PAD     : FFFFFFFFFF
-Format  : VISA-4
-------------------------------------
-Formatted PIN block  : 041215FEDCBA9876
-Formatted PAN block  : 0000210123456789
-
-`
-		require.Equal(t, expectedOutput, out.String())
+		requireDebugNote(t, out.String(), "encode", "VISA-4")
 	})
 }
 

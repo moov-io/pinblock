@@ -50,10 +50,7 @@ func TestISO1(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, pinBlock, "141234")
 
-		expectedOutput := `PIN block encode operation finished
-************************************
-PIN     : 1234`
-		require.Contains(t, out.String(), expectedOutput)
+		requireDebugNote(t, out.String(), "encode", "Format 1 (ISO-1)")
 	})
 
 	t.Run("decode logs", func(t *testing.T) {
@@ -66,16 +63,7 @@ PIN     : 1234`
 		require.NoError(t, err)
 		require.Equal(t, "123456789012", pin)
 
-		expectedOutput := `PIN block decode operation finished
-************************************
-Formatted PIN block  : 123456789012FF
-PAD                  : FF
-Format               : Format 1 (ISO-1)
-------------------------------------
-Decoded PIN  : 123456789012
-
-`
-		require.Equal(t, expectedOutput, out.String())
+		requireDebugNote(t, out.String(), "decode", "Format 1 (ISO-1)")
 	})
 }
 
@@ -121,16 +109,7 @@ func TestISO2(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "241234FFFFFFFFFF", pinBlock)
 
-		expectedOutput := `PIN block encode operation finished
-************************************
-PIN     : 1234
-PAD     : FFFFFFFFFF
-Format  : Format 2 (ISO-2)
-------------------------------------
-Formatted PIN block  : 241234FFFFFFFFFF
-
-`
-		require.Equal(t, expectedOutput, out.String())
+		requireDebugNote(t, out.String(), "encode", "Format 2 (ISO-2)")
 	})
 
 	t.Run("decode logs", func(t *testing.T) {
@@ -143,16 +122,7 @@ Formatted PIN block  : 241234FFFFFFFFFF
 		require.NoError(t, err)
 		require.Equal(t, "123456789012", pin)
 
-		expectedOutput := `PIN block decode operation finished
-************************************
-Formatted PIN block  : 123456789012FF
-PAD                  : FF
-Format               : Format 2 (ISO-2)
-------------------------------------
-Decoded PIN  : 123456789012
-
-`
-		require.Equal(t, expectedOutput, out.String())
+		requireDebugNote(t, out.String(), "decode", "Format 2 (ISO-2)")
 	})
 }
 
@@ -167,15 +137,6 @@ func TestECI4(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "123456789012", pin)
 
-		expectedOutput := `PIN block decode operation finished
-************************************
-Formatted PIN block  : 123456789012FF
-PAD                  : FF
-Format               : ECI-4
-------------------------------------
-Decoded PIN  : 123456789012
-
-`
-		require.Equal(t, expectedOutput, out.String())
+		requireDebugNote(t, out.String(), "decode", "ECI-4")
 	})
 }

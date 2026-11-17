@@ -3,8 +3,31 @@ package formats_test
 import (
 	"testing"
 
+	"github.com/moov-io/pinblock/encryption"
 	"github.com/moov-io/pinblock/formats"
 )
+
+// fuzzFormats is every format with the number of leading PIN digits it keeps.
+var fuzzFormats = []struct {
+	ctor func() formats.Format
+	keep int
+}{
+	{formats.NewISO0, 12},
+	{formats.NewISO1, 12},
+	{formats.NewISO2, 12},
+	{formats.NewISO3, 12},
+	{func() formats.Format { return formats.NewISO4(encryption.NewNoOp()) }, 12},
+	{formats.NewANSIX98, 12},
+	{formats.NewOEM1, 12},
+	{formats.NewECI1, 12},
+	{formats.NewECI2, 4},
+	{formats.NewECI3, 6},
+	{formats.NewECI4, 12},
+	{formats.NewVISA1, 12},
+	{formats.NewVISA2, 6},
+	{formats.NewVISA3, 12},
+	{formats.NewVISA4, 12},
+}
 
 func FuzzISO0EncodeDecode(f *testing.F) {
 	// Real test vectors from iso0_test.go
@@ -25,28 +48,21 @@ func FuzzISO0EncodeDecode(f *testing.F) {
 			t.Skip()
 		}
 
-		for _, ctor := range []func() formats.Format{
-			formats.NewISO0,
-			formats.NewISO1,
-			formats.NewISO2,
-			formats.NewISO3,
-			formats.NewANSIX98,
-			formats.NewOEM1,
-			formats.NewECI1,
-			formats.NewECI2,
-			formats.NewECI3,
-			formats.NewECI4,
-			formats.NewVISA1,
-			formats.NewVISA2,
-			formats.NewVISA3,
-			formats.NewVISA4,
-		} {
-			fmtter := ctor()
+		for _, tc := range fuzzFormats {
+			fmtter := tc.ctor()
 			block, err := fmtter.Encode(pin, pan)
 			if err != nil {
 				continue
 			}
-			_, _ = fmtter.Decode(block, pan)
+			requireUpperHex(t, block)
+			// Whatever Encode accepts, Decode must give back.
+			got, err := fmtter.Decode(block, pan)
+			if err != nil {
+				t.Fatalf("decode of an encoded block failed: %v", err)
+			}
+			if want := pin[:min(len(pin), tc.keep)]; got != want {
+				t.Fatalf("round trip: got %q, want %q", got, want)
+			}
 		}
 	})
 }
@@ -62,14 +78,34 @@ func FuzzDecodeOnly(f *testing.F) {
 			t.Skip()
 		}
 
-		for _, ctor := range []func() formats.Format{
-			formats.NewISO0,
-			formats.NewISO1,
-			formats.NewISO3,
-			formats.NewANSIX98,
-			formats.NewVISA1,
-		} {
-			_, _ = ctor().Decode(block, pan)
+		for _, tc := range fuzzFormats {
+			pin, err := tc.ctor().Decode(block, pan)
+			if err != nil {
+				continue
+			}
+			if len(pin) < 4 || len(pin) > 12 {
+				t.Fatalf("decoded a PIN of %d digits", len(pin))
+			}
+			for i := 0; i < len(pin); i++ {
+				if pin[i] < '0' || pin[i] > '9' {
+					t.Fatalf("decoded a non-decimal PIN %q", pin)
+				}
+			}
 		}
 	})
+}
+
+// requireUpperHex fails unless block is upper-case hex text of a PIN block's
+// length.
+func requireUpperHex(t *testing.T, block string) {
+	t.Helper()
+	if len(block) != 16 && len(block) != 32 {
+		t.Fatalf("pin block %q has length %d", block, len(block))
+	}
+	for i := 0; i < len(block); i++ {
+		c := block[i]
+		if (c < '0' || c > '9') && (c < 'A' || c > 'F') {
+			t.Fatalf("pin block %q is not upper-case hex", block)
+		}
+	}
 }

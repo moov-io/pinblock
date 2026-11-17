@@ -106,45 +106,33 @@ To support this type, encryption logic implemented in moov pinblock package
 		pin, err := iso4.Decode(pinBlock, "432198765432109870")
 ```
 
-User can get debug messages that describe operation status intuitively with SetDebugWriter() function.
+`SetDebugWriter()` writes a short note after each successful operation, naming the operation and the format. It never writes the PIN, the PAN, the PIN length, the fill or any PIN block.
 ```
-		pin := "1234"
-		account := "5432101234567891"
 		iso0 := formats.NewISO0()
 		out := bytes.NewBuffer([]byte{})
 		iso0.SetDebugWriter(out)
-		pinBlock, err := iso0.Encode(pin, account)
+		pinBlock, err := iso0.Encode("1234", "5432101234567891")
 		fmt.Println(out.String())
-		
-		out.Reset()
-		
-		pin, err := iso0.Decode(pinBlock, account)
-		fmt.Println(out.String())
-		
 ```
 
-Expected output messages from above code.
+Expected output:
 ```
 PIN block encode operation finished
-************************************
-PAN     : 5432101234567891
-PIN     : 1234
-PAD     : FFFFFFFFFF
 Format  : Format 0 (ISO-0)
-------------------------------------
-Formatted PIN block  : 041215FEDCBA9876
-Formatted PAN block  : 0000210123456789
-
-PIN block decode operation finished
-************************************
-Formatted PAN block  : 0000210123456789
-Formatted PIN block  : 041234FFFFFFFFFF
-PAD                  : FFFFFFFFFF
-Format               : Format 0 (ISO-0)
-------------------------------------
-Decoded PIN  : 1234
 
 ```
+
+### Validation
+
+`Encode` accepts only decimal digits in the PIN and the PAN. `Decode` checks the block's structure (format nibble, PIN length 4 to 12, decimal PIN digits and, for the ISO formats, the fill each one defines) and returns an error for a malformed block, which is also what a block decrypted under the wrong key looks like. PIN blocks are returned as upper-case hex; `Decode` accepts either case.
+
+### Handling PINs in memory
+
+Every intermediate the package builds (the PIN field, the PAN field, XOR results, random fill, cipher outputs and the text being converted) is held in a byte slice and cleared before `Encode` or `Decode` returns, including when it returns an error.
+
+The PIN, the PAN and the PIN block passed in and returned are Go strings, and a string cannot be overwritten: they stay in memory until the garbage collector reuses it, and neither this package nor the caller can clear them. Treat the PIN block as sensitive too: for ISO-0 and ISO-3 it is the PIN field XORed with the PAN. An API that takes and returns byte slices the caller can clear is proposed as a separate enhancement. `pinblock.Clear` is available for clearing your own byte buffers.
+
+Copies the package cannot reach are not cleared either: the AES key schedule inside `crypto/aes`, copies in CPU registers or on goroutine stacks, and anything a `Cipher` implementation keeps.
 
 ## Docs
 
