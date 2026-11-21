@@ -20,12 +20,15 @@ func TestDecode_InvalidPinLengthNoPanic(t *testing.T) {
 			formats.NewVISA1, formats.NewVISA2, formats.NewVISA3, formats.NewVISA4,
 			formats.NewOEM1, formats.NewANSIX98,
 		} {
+			// A PIN containing a space is not decimal, so every format refuses it.
 			block, err := ctor().Encode("00 0", "0")
-			if err != nil {
-				_, _ = ctor().Decode("0A00000000000000", "0000000000000")
-				continue
+			require.Error(t, err)
+			require.Empty(t, block)
+			_, _ = ctor().Decode("0A00000000000000", "0000000000000")
+			// Every length is checked, including empty.
+			for _, b := range []string{"", "0A0000000000000", "0A000000000000000", "0A000000000000000000000000000000"} {
+				_, _ = ctor().Decode(b, "0")
 			}
-			_, _ = ctor().Decode(block, "0")
 		}
 	})
 }

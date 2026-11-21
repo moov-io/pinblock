@@ -50,16 +50,7 @@ func TestOEM1(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, pinBlock, "1234555555555555")
 
-		expectedOutput := `PIN block encode operation finished
-************************************
-PIN     : 1234
-PAD     : 555555555555
-Format  : Diebold, Docutel, NCR
-------------------------------------
-Formatted PIN block  : 1234555555555555
-
-`
-		require.Equal(t, out.String(), expectedOutput)
+		requireDebugNote(t, out.String(), "encode", "Diebold, Docutel, NCR")
 	})
 
 	t.Run("decode logs", func(t *testing.T) {
@@ -72,15 +63,6 @@ Formatted PIN block  : 1234555555555555
 		require.NoError(t, err)
 		require.Equal(t, "123456789012", pin)
 
-		expectedOutput := `PIN block decode operation finished
-************************************
-Formatted PIN block  : 123456789012AAAA
-PAD                  : AAAA
-Format               : Diebold, Docutel, NCR
-------------------------------------
-Decoded PIN  : 123456789012
-
-`
-		require.Equal(t, expectedOutput, out.String())
+		requireDebugNote(t, out.String(), "decode", "Diebold, Docutel, NCR")
 	})
 }

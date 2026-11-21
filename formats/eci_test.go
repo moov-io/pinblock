@@ -50,10 +50,7 @@ func TestECI2(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, pinBlock, "1234")
 
-		expectedOutput := `PIN block encode operation finished
-************************************
-PIN     : 1234`
-		require.Contains(t, out.String(), expectedOutput)
+		requireDebugNote(t, out.String(), "encode", "ECI-2")
 	})
 
 	t.Run("decode logs", func(t *testing.T) {
@@ -66,16 +63,7 @@ PIN     : 1234`
 		require.NoError(t, err)
 		require.Equal(t, "1234", pin)
 
-		expectedOutput := `PIN block decode operation finished
-************************************
-Formatted PIN block  : 123456789012AAAA
-PAD                  : 56789012AAAA
-Format               : ECI-2
-------------------------------------
-Decoded PIN  : 1234
-
-`
-		require.Equal(t, out.String(), expectedOutput)
+		requireDebugNote(t, out.String(), "decode", "ECI-2")
 	})
 }
 
@@ -119,10 +107,7 @@ func TestECI3(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, pinBlock, "1234")
 
-		expectedOutput := `PIN block encode operation finished
-************************************
-PIN     : 1234`
-		require.Contains(t, out.String(), expectedOutput)
+		requireDebugNote(t, out.String(), "encode", "ECI-3")
 	})
 
 	t.Run("decode logs", func(t *testing.T) {
@@ -135,16 +120,7 @@ PIN     : 1234`
 		require.NoError(t, err)
 		require.Equal(t, "123456", pin)
 
-		expectedOutput := `PIN block decode operation finished
-************************************
-Formatted PIN block  : 6123456789012AAA
-PAD                  : 789012AAA
-Format               : ECI-3
-------------------------------------
-Decoded PIN  : 123456
-
-`
-		require.Equal(t, expectedOutput, out.String())
+		requireDebugNote(t, out.String(), "decode", "ECI-3")
 	})
 }
 
@@ -188,10 +164,7 @@ func TestVISA2(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, pinBlock, "1234")
 
-		expectedOutput := `PIN block encode operation finished
-************************************
-PIN     : 1234`
-		require.Contains(t, out.String(), expectedOutput)
+		requireDebugNote(t, out.String(), "encode", "VISA-2")
 	})
 
 	t.Run("decode logs", func(t *testing.T) {
@@ -204,15 +177,6 @@ PIN     : 1234`
 		require.NoError(t, err)
 		require.Equal(t, "123456", pin)
 
-		expectedOutput := `PIN block decode operation finished
-************************************
-Formatted PIN block  : 6123456789012222
-PAD                  : 789012222
-Format               : VISA-2
-------------------------------------
-Decoded PIN  : 123456
-
-`
-		require.Equal(t, expectedOutput, out.String())
+		requireDebugNote(t, out.String(), "decode", "VISA-2")
 	})
 }

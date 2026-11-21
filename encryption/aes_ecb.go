@@ -6,10 +6,16 @@ import (
 	"fmt"
 )
 
+// AesECB is an AES block cipher for ISO-4 PIN blocks. Encrypt and Decrypt
+// take exactly one 16-byte block, do not modify it, and return a new slice.
 type AesECB struct {
 	cipherBlock cipher.Block
 }
 
+// NewAesECB returns an AesECB for key (16, 24 or 32 bytes). crypto/aes copies
+// the key into its own key schedule, so the caller may clear key with
+// pinblock.Clear afterwards; that schedule is held by crypto/aes and cannot be
+// cleared.
 func NewAesECB(key []byte) (*AesECB, error) {
 	cipher, err := aes.NewCipher(key)
 	if err != nil {
