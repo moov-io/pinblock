@@ -1,10 +1,12 @@
 [![Moov Banner Logo](https://user-images.githubusercontent.com/20115216/104214617-885b3c80-53ec-11eb-8ce0-9fc745fb5bfc.png)](https://github.com/moov-io)
 
+[![GoDoc](https://pkg.go.dev/badge/github.com/moov-io/pinblock/formats.svg)](https://pkg.go.dev/github.com/moov-io/pinblock/formats)
+
 # moov-io/pinblock
 
-The `pinblock` package implements Personal Identifiation (PIN) managment and security.
+The `pinblock` package implements Personal Identification Number (PIN) management and security.
 
-A block of data used to encapsulate a PIN during processing. The PIN block format defines the content of the PIN block and how it is processed to retrieve the PIN. The PIN block is composed of the PIN, the PIN length, and may contain subset of the PAN. Their are many formats for PIN blocks that are network and processor dependent. Regardless the data is shipped in [ISO8583](https://github.com/moov-io/iso8583) field 52. 
+A block of data used to encapsulate a PIN during processing. The PIN block format defines the content of the PIN block and how it is processed to retrieve the PIN. The PIN block is composed of the PIN, the PIN length, and may contain subset of the PAN. There are many formats for PIN blocks that are network and processor dependent. Regardless the data is shipped in [ISO8583](https://github.com/moov-io/iso8583) field 52. 
 
 
 ## Table of contents
@@ -14,6 +16,9 @@ A block of data used to encapsulate a PIN during processing. The PIN block forma
     - [Installation](#installation)
     - [Pin blocks](#supported-pin-blocks)
 - [Usage](#usage)
+    - [Clear and enciphered PIN blocks](#clear-and-enciphered-pin-blocks)
+    - [Select a format by name](#select-a-format-by-name)
+    - [Validation](#validation)
 - [Docs](#docs)
 - [Other examples](#other-examples)
 - [Getting help](#getting-help)
@@ -23,88 +28,135 @@ A block of data used to encapsulate a PIN during processing. The PIN block forma
 
 ## Project status
 
-Moov pinblock currently offers a Go package that support decode and encode features for a lot of pinblock formats. Feedback on this early version of the project is appreciated and vital to its success. Please let us know if you encounter any bugs/unclear documentation or have feature suggestions by opening up an issue. Thanks!
+Moov pinblock currently offers a Go package that supports decode and encode features for a lot of pinblock formats. Feedback on this early version of the project is appreciated and vital to its success. Please let us know if you encounter any bugs/unclear documentation or have feature suggestions by opening up an issue. Thanks!
 
 ## Go library
 
-This project uses [Go Modules](https://go.dev/blog/using-go-modules) and Go v1.18 or newer. See [Golang's install instructions](https://golang.org/doc/install) for help in setting up Go. You can download the source code and we offer [tagged and released versions](https://github.com/moov-io/pinblock/releases/latest) as well. We highly recommend you use a tagged release for production.
+This project uses [Go Modules](https://go.dev/blog/using-go-modules) and Go v1.22.2 or newer. See [Golang's install instructions](https://golang.org/doc/install) for help in setting up Go. You can download the source code and we offer [tagged and released versions](https://github.com/moov-io/pinblock/releases/latest) as well. We highly recommend you use a tagged release for production.
 
 
 ### Installation
 
 ```
-go get github.com/moov-io/pinblock
+go get github.com/moov-io/pinblock@latest
 ```
+
+The PIN block formats are in the `github.com/moov-io/pinblock/formats` package. The AES cipher for ISO-4 is in the `github.com/moov-io/pinblock/encryption` package. This project is a Go library only. It does not have a CLI, a server or a Docker image.
 
 ### Supported pin blocks
 
-- [x] ISO 9564-1 Format 0
-- [x] ISO 9564-1:2003 Format 1
-- [x] ISO 9564-3: 2003 Format 2
-- [x] ISO 9564-1: 2002 Format 3
-- [x] ANSI X9.8
-- [x] OEM-1 (Diebold, Docutel, NCR)
-- [x] ECI-1, ECI-2, ECI-3, ECI-4
+- [x] ISO 9564-1 Format 0 (`NewISO0`)
+- [x] ISO 9564-1 Format 1 (`NewISO1`)
+- [x] ISO 9564-1 Format 2 (`NewISO2`)
+- [x] ISO 9564-1 Format 3 (`NewISO3`)
+- [x] ISO 9564-1 Format 4, AES (`NewISO4`)
+- [x] ANSI X9.8 (`NewANSIX98`)
+- [x] OEM-1 (Diebold, Docutel, NCR) (`NewOEM1`)
+- [x] ECI-1, ECI-2, ECI-3, ECI-4 (`NewECI1` to `NewECI4`)
+- [x] VISA-1, VISA-2, VISA-3, VISA-4 (`NewVISA1` to `NewVISA4`)
 
 ## Usage
 
-All the pin block types implemented based on two different interfaces
+All the pin block types implement one interface, `formats.Format`:
 ```
-type FormatA interface {
+type Format interface {
 	SetDebugWriter(writer io.Writer)
 	Encode(pin, account string) (string, error)
 	Decode(pinBlock, account string) (string, error)
 }
+```
+`pin` is the PIN as decimal digits and `account` is the PAN as decimal digits. Formats that do not use the PAN (ISO-1, ISO-2, OEM-1, ECI-2, ECI-3, ECI-4, VISA-2 and VISA-3) ignore `account`, so give `""`. A PIN block is upper-case hex text: 16 characters, or 32 characters for ISO-4.
 
-type FormatB interface {
-	SetDebugWriter(writer io.Writer)
-	Encode(pin string) (string, error)
-	Decode(pinBlock string) (string, error)
+Every constructor returns a `formats.Format`:
+
+```
+func NewISO0() Format
+func NewISO1() Format
+func NewISO2() Format
+func NewISO3() Format
+func NewISO4(cipher Cipher) Format
+func NewANSIX98() Format
+func NewOEM1() Format
+func NewECI1() Format
+func NewECI2() Format
+func NewECI3() Format
+func NewECI4() Format
+func NewVISA1() Format
+func NewVISA2() Format
+func NewVISA3() Format
+func NewVISA4() Format
+```
+
+Encode and decode an ISO-0 PIN block:
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/moov-io/pinblock/formats"
+)
+
+func main() {
+	pin := "1234"
+	account := "43219876543210987"
+
+	iso0 := formats.NewISO0()
+
+	pinBlock, err := iso0.Encode(pin, account)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(pinBlock) // 0412AC89ABCDEF67
+
+	decoded, err := iso0.Decode(pinBlock, account)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(decoded) // 1234
 }
 ```
-FormatA used pin and pan code for encrypt operation and decode operation, but FormatB used pin code only.
-Generally user can not access code block instance (struct instance), should use via interface 
 
-There are some global functions to get pin blocker instance
+ISO-0 and ISO-3 use the 12 rightmost digits of the PAN, without the check digit, so the PAN must have 13 digits or more. ISO-4 accepts a PAN of 12 to 19 digits.
 
-```
-func NewISO0() FormatA
-func NewISO1() FormatB
-func NewISO2() FormatB
-func NewISO3() FormatA
-func NewISO4(cipher Cipher) FormatA
-func NewANSIX98() FormatA
-func NewOEM1() FormatB
-func NewECI1() FormatA
-func NewECI2() FormatB
-func NewECI3() FormatB
-func NewECI4() FormatB
-func NewVISA1() FormatA
-func NewVISA2() FormatB
-func NewVISA3() FormatB
-func NewVISA4() FormatA
-```
+An ISO-4 pin block is enciphered with an AES key. `encryption.NewAesECB` gives a `formats.Cipher` for a 16, 24 or 32-byte key:
+```go
+key, err := hex.DecodeString("00112233445566778899AABBCCDDEEFF")
+if err != nil {
+	log.Fatal(err)
+}
+cipher, err := encryption.NewAesECB(key)
+if err != nil {
+	log.Fatal(err)
+}
 
-To use a set of method signatures according to interface is very easy
-```
-		pin := "1234"
-		account := "5432101234567891"
-		
-		iso0 := formats.NewISO0()
-		pinBlock, err := iso0.Encode(pin, account)
-		...
-		pin, err := iso0.Decode(pinBlock, account)
-		...
-```
+iso4 := formats.NewISO4(cipher)
 
-Especially pin block of iso-4 required that pin block is encrypted with AES key.
-To support this type, encryption logic implemented in moov pinblock package
+pinBlock, err := iso4.Encode("1234", "432198765432109870")
+if err != nil {
+	log.Fatal(err)
+}
+pin, err := iso4.Decode(pinBlock, "432198765432109870")
+if err != nil {
+	log.Fatal(err)
+}
 ```
-		cipher, err := encryption.NewAesECB([]byte("1234567890123456"))
-		iso4 := NewISO4(cipher)
-		pinBlock, err := iso4.Encode("12344", "432198765432109870")
-		pin, err := iso4.Decode(pinBlock, "432198765432109870")
-```
+The ISO-4 block contains random fill, so `Encode` gives a different block each time.
+
+These examples are tested in [formats/example_test.go](formats/example_test.go).
+
+### Clear and enciphered PIN blocks
+
+Only ISO-4 enciphers the PIN block. All the other formats return a **clear** PIN block from `Encode`, and `Decode` expects a clear PIN block. A clear PIN block is not safe to send: for ISO-0 and ISO-3, anyone who has the PAN can get the PIN from it. Before a clear block leaves the terminal or the host, encipher it under a PIN key (usually TDES), and decipher it before you call `Decode`.
+
+This package does not include a TDES cipher. The `formats.Cipher` interface has a 16-byte block and it is only for ISO-4. Use `crypto/des` (or your HSM) for TDES. [`Example_translatePIN`](formats/example_test.go) shows a PIN translation: it deciphers a TDES-enciphered ISO-0 block, decodes the PIN, and encodes it again as an ISO-4 block under an AES key.
+
+### Select a format by name
+
+`formats.NewFormatter(name)` returns a `Format` by name, for example `"ISO-0"`, `"ISO-3"`, `"ANSI"`, `"ECI1"` or `"VISA1"`. See [its godoc](https://pkg.go.dev/github.com/moov-io/pinblock/formats#NewFormatter) for all the names. Use `NewISO4` with a cipher for ISO-4. Do not use `NewFormatter` for ISO-4.
+
+### Debug output
 
 `SetDebugWriter()` writes a short note after each successful operation, naming the operation and the format. It never writes the PIN, the PAN, the PIN length, the fill or any PIN block.
 ```
@@ -124,7 +176,9 @@ Format  : Format 0 (ISO-0)
 
 ### Validation
 
-`Encode` accepts only decimal digits in the PIN and the PAN. `Decode` checks the block's structure (format nibble, PIN length 4 to 12, decimal PIN digits and, for the ISO formats, the fill each one defines) and returns an error for a malformed block, which is also what a block decrypted under the wrong key looks like. PIN blocks are returned as upper-case hex; `Decode` accepts either case.
+`Encode` accepts only decimal digits in the PIN and the PAN. A PIN must have 4 to 12 digits; OEM-1 is different, because it truncates a PIN that is longer than 12 digits, as the format defines. `Decode` checks the block's structure (format nibble, PIN length 4 to 12, decimal PIN digits and, for the ISO formats, the fill each one defines) and returns an error for a malformed block, which is also what a block decrypted under the wrong key looks like. PIN blocks are returned as upper-case hex; `Decode` accepts either case.
+
+`Decode` cannot tell a block that was enciphered under a different key from a malformed block, because a block deciphered under the wrong key is random data. Use a key check value or other information if you must know which key was used.
 
 ### Handling PINs in memory
 
@@ -141,8 +195,6 @@ Copies the package cannot reach are not cleared either: the AES key schedule ins
 [Complete list of Pin-blocks](https://www.eftlab.com/knowledge-base/complete-list-of-pin-blocks)
 
 [MasterCard Pin block encryption](https://developer.mastercard.com/card-issuance/documentation/pin-block-encryption-process/)
-
-[ICMA PIN block formats](http://icma.com/wp-content/uploads/2015/07/PinBlockFormats_SE1-15CM.pdf)
 
 [PINBlock Explained](https://www.linkedin.com/pulse/pinblock-explained-iftekharul-haque/)
 
@@ -161,16 +213,16 @@ Copies the package cannot reach are not cleared either: the AES key schedule ins
 
 channel | info
  ------- | -------
-[Project Documentation](https://github.com/moov-io/pinblock/tree/master/docs) | Our project documentation available online.
+[Project Documentation](https://pkg.go.dev/github.com/moov-io/pinblock/formats) | Our Go package documentation on pkg.go.dev.
 Twitter [@moov](https://twitter.com/moov)	| You can follow Moov.io's Twitter feed to get updates on our project(s). You can also tweet us questions or just share blogs or stories.
 [GitHub Issue](https://github.com/moov-io/pinblock/issues/new) | If you are able to reproduce a problem please open a GitHub Issue under the specific project that caused the error.
 [moov-io slack](https://slack.moov.io/) | Join our slack channel (`#pinblock`) to have an interactive discussion about the development of the project.
 
 ## Contributing
 
-Please review our [Contributing guide](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md) to get started! Check out our [issues for first time contributors](https://github.com/moov-io/pinblock/contribute) for something to help out with.
+Please review our [Contributing guide](https://github.com/moov-io/ach/blob/master/CONTRIBUTING.md) and [Code of Conduct](https://github.com/moov-io/ach/blob/master/CODE_OF_CONDUCT.md) to get started! Check out our [issues for first time contributors](https://github.com/moov-io/pinblock/contribute) for something to help out with.
 
-This project uses [Go Modules](https://go.dev/blog/using-go-modules) and Go v1.20 or newer. See [Golang's install instructions](https://golang.org/doc/install) for help setting up Go. You can download the source code and we offer [tagged and released versions](https://github.com/moov-io/pinblock/releases/latest) as well. We highly recommend you use a tagged release for production.
+This project uses [Go Modules](https://go.dev/blog/using-go-modules) and Go v1.22.2 or newer. See [Golang's install instructions](https://golang.org/doc/install) for help setting up Go. Run the tests with `go test ./...`. You can download the source code and we offer [tagged and released versions](https://github.com/moov-io/pinblock/releases/latest) as well. We highly recommend you use a tagged release for production.
 
 ## Related projects
 As part of Moov's initiative to offer open source fintech infrastructure, we have a large collection of active projects you may find useful:
