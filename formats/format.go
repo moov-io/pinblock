@@ -3,8 +3,7 @@ package formats
 import (
 	"fmt"
 	"io"
-
-	"github.com/moov-io/pinblock/encryption"
+	"strings"
 )
 
 // Version identifiers for the ECI-style formats.
@@ -70,8 +69,8 @@ var (
 		"ISO-1": func() Format { return NewISO1() },
 		"ISO-2": func() Format { return NewISO2() },
 		"ISO-3": func() Format { return NewISO3() },
-		"ISO-4": func() Format { return NewISO4(encryption.NewNoOp()) },
 		"ANSI":  func() Format { return NewANSIX98() },
+		"OEM1":  func() Format { return NewOEM1() },
 		"ECI1":  func() Format { return NewECI1() },
 		"ECI2":  func() Format { return NewECI2() },
 		"ECI3":  func() Format { return NewECI3() },
@@ -81,14 +80,29 @@ var (
 		"VISA3": func() Format { return NewVISA3() },
 		"VISA4": func() Format { return NewVISA4() },
 	}
+
+	// formatNames is the list of names NewFormatter accepts, in the order
+	// its error shows them.
+	formatNames = []string{
+		"ISO-0", "ISO-1", "ISO-2", "ISO-3", "ANSI", "OEM1",
+		"ECI1", "ECI2", "ECI3", "ECI4", "VISA1", "VISA2", "VISA3", "VISA4",
+	}
 )
 
 // NewFormatter returns the Format named bType: one of ISO-0, ISO-1, ISO-2,
-// ISO-3, ISO-4, ANSI, ECI1, ECI2, ECI3, ECI4, VISA1, VISA2, VISA3 or VISA4.
+// ISO-3, ANSI, OEM1, ECI1, ECI2, ECI3, ECI4, VISA1, VISA2, VISA3 or VISA4.
+//
+// For "ISO-4" it returns an error that matches ErrCipherRequired, because
+// ISO-4 needs a cipher. Use NewISO4 with a cipher for ISO-4. For a name it
+// does not know, it returns an error that matches ErrUnsupportedFormat and
+// lists the names it accepts.
 func NewFormatter(bType string) (Format, error) {
+	if bType == "ISO-4" {
+		return nil, fmt.Errorf("%w: use NewISO4 with a cipher", ErrCipherRequired)
+	}
 	constructor := formatConstructor[bType]
 	if constructor == nil {
-		return nil, fmt.Errorf("unsupported pinblock type")
+		return nil, fmt.Errorf("%w %q: use one of %s", ErrUnsupportedFormat, bType, strings.Join(formatNames, ", "))
 	}
 
 	return constructor(), nil
