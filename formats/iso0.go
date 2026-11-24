@@ -73,7 +73,7 @@ func (i *iso0Object) Encode(pin, account string) (string, error) {
 // Decode returns the PIN from a 16-character PIN block. See Format.
 func (i *iso0Object) Decode(pinBlock, account string) (string, error) {
 	if len(pinBlock) != fieldNibbles {
-		return "", fmt.Errorf("pin block must be 16 characters")
+		return "", errBlockLength16
 	}
 
 	panField, err := panFieldISO0(account)
@@ -90,15 +90,15 @@ func (i *iso0Object) Decode(pinBlock, account string) (string, error) {
 	xorInto(pinField, pinField, panField)
 
 	if pinField[0] != i.version {
-		return "", fmt.Errorf("format is different")
+		return "", ErrFormatMismatch
 	}
 	pinLength := int(pinField[1])
 	if pinLength < 4 || pinLength > 12 {
-		return "", fmt.Errorf("invalid pin length %d", pinLength)
+		return "", fmt.Errorf("%w %d", ErrInvalidPINLength, pinLength)
 	}
 	for _, n := range pinField[2+pinLength:] {
 		if !i.validFill(n) {
-			return "", fmt.Errorf("invalid fill in pin block")
+			return "", ErrInvalidFill
 		}
 	}
 	pin, err := pinFromNibbles(pinField[2 : 2+pinLength])

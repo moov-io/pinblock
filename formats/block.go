@@ -58,7 +58,7 @@ func pinFromNibbles(nibbles []byte) (string, error) {
 	defer wipe(pin)
 	for i, n := range nibbles {
 		if n > 9 {
-			return "", fmt.Errorf("pin block holds a non-decimal PIN digit")
+			return "", errBlockPINDigit
 		}
 		pin[i] = '0' + n
 	}
@@ -81,7 +81,7 @@ func hexNibbles(s string) ([]byte, error) {
 			out[i] = c - 'a' + 10
 		default:
 			wipe(out)
-			return nil, fmt.Errorf("pin block must contain only hex characters")
+			return nil, errBlockNotHex
 		}
 	}
 	return out, nil

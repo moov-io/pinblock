@@ -56,7 +56,7 @@ func (i *oemObject) Encode(pin, _ string) (string, error) {
 // See Format.
 func (i *oemObject) Decode(pinBlock, _ string) (string, error) {
 	if len(pinBlock) != fieldNibbles {
-		return "", fmt.Errorf("pin block must be 16 characters")
+		return "", errBlockLength16
 	}
 
 	nibbles, err := hexNibbles(pinBlock)
@@ -72,7 +72,7 @@ func (i *oemObject) Decode(pinBlock, _ string) (string, error) {
 		pinLength--
 	}
 	if pinLength < 4 || pinLength > 12 {
-		return "", fmt.Errorf("invalid pin length %d", pinLength)
+		return "", fmt.Errorf("%w %d", ErrInvalidPINLength, pinLength)
 	}
 	pin, err := pinFromNibbles(nibbles[:pinLength])
 	if err != nil {

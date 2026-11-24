@@ -58,7 +58,7 @@ func (i *eciObject) Encode(pin, _ string) (string, error) {
 // See Format.
 func (i *eciObject) Decode(pinBlock, _ string) (string, error) {
 	if len(pinBlock) != fieldNibbles {
-		return "", fmt.Errorf("pin block must be 16 characters")
+		return "", errBlockLength16
 	}
 
 	nibbles, err := hexNibbles(pinBlock)
@@ -73,7 +73,7 @@ func (i *eciObject) Decode(pinBlock, _ string) (string, error) {
 	} else {
 		pinLength := int(nibbles[0])
 		if pinLength < 4 || pinLength > 6 {
-			return "", fmt.Errorf("unable to parse pin block")
+			return "", errBlockUnparsable
 		}
 		digits = nibbles[1 : 1+pinLength]
 	}

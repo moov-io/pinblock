@@ -50,7 +50,7 @@ func (i *visa3Object) Encode(pin, _ string) (string, error) {
 // See Format.
 func (i *visa3Object) Decode(pinBlock, _ string) (string, error) {
 	if len(pinBlock) != fieldNibbles {
-		return "", fmt.Errorf("pin block must be 16 characters")
+		return "", errBlockLength16
 	}
 
 	nibbles, err := hexNibbles(pinBlock)
@@ -67,7 +67,7 @@ func (i *visa3Object) Decode(pinBlock, _ string) (string, error) {
 		}
 	}
 	if index < 4 || index > 12 {
-		return "", fmt.Errorf("unable to parse pin block")
+		return "", errBlockUnparsable
 	}
 	pin, err := pinFromNibbles(nibbles[:index])
 	if err != nil {

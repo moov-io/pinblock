@@ -73,7 +73,7 @@ func apply(op func([]byte) ([]byte, error), in []byte, step string) ([]byte, err
 // See Format.
 func (i *iso4Object) Encode(pin, account string) (string, error) {
 	if i.cipher == nil {
-		return "", fmt.Errorf("iso-4 requires a cipher")
+		return "", ErrCipherRequired
 	}
 	if len(pin) < 4 || len(pin) > 12 {
 		return "", fmt.Errorf("pin length must be between 4 and 12 digits")
@@ -130,10 +130,10 @@ func (i *iso4Object) Encode(pin, account string) (string, error) {
 // Decode returns the PIN from a 32-character enciphered PIN block. See Format.
 func (i *iso4Object) Decode(pinBlock, account string) (string, error) {
 	if i.cipher == nil {
-		return "", fmt.Errorf("iso-4 requires a cipher")
+		return "", ErrCipherRequired
 	}
 	if len(pinBlock) != 2*iso4BlockLen {
-		return "", fmt.Errorf("pinBlock must be 32 hex characters (16 bytes)")
+		return "", errBlockLength32
 	}
 
 	panField, err := i.panField(account)
@@ -170,15 +170,15 @@ func (i *iso4Object) Decode(pinBlock, account string) (string, error) {
 	defer wipe(nibbles)
 
 	if nibbles[0] != 0x4 {
-		return "", fmt.Errorf("format is different")
+		return "", ErrFormatMismatch
 	}
 	pinLength := int(nibbles[1])
 	if pinLength < 4 || pinLength > 12 {
-		return "", fmt.Errorf("invalid pin length %d", pinLength)
+		return "", fmt.Errorf("%w %d", ErrInvalidPINLength, pinLength)
 	}
 	for _, n := range nibbles[2+pinLength : fieldNibbles] {
 		if n != 0xA {
-			return "", fmt.Errorf("invalid fill in pin block")
+			return "", ErrInvalidFill
 		}
 	}
 	pin, err := pinFromNibbles(nibbles[2 : 2+pinLength])

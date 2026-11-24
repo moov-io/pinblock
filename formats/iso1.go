@@ -59,7 +59,7 @@ func (i *iso1Object) Encode(pin, _ string) (string, error) {
 // See Format.
 func (i *iso1Object) Decode(pinBlock, _ string) (string, error) {
 	if len(pinBlock) != fieldNibbles {
-		return "", fmt.Errorf("pin block must be 16 characters")
+		return "", errBlockLength16
 	}
 
 	pinField, err := hexNibbles(pinBlock)
@@ -69,16 +69,16 @@ func (i *iso1Object) Decode(pinBlock, _ string) (string, error) {
 	defer wipe(pinField)
 
 	if pinField[0] != i.version {
-		return "", fmt.Errorf("format is different")
+		return "", ErrFormatMismatch
 	}
 	pinLength := int(pinField[1])
 	if pinLength < 4 || pinLength > 12 {
-		return "", fmt.Errorf("invalid pin length %d", pinLength)
+		return "", fmt.Errorf("%w %d", ErrInvalidPINLength, pinLength)
 	}
 	if i.version == 0x2 {
 		for _, n := range pinField[2+pinLength:] {
 			if n != 0xF {
-				return "", fmt.Errorf("invalid fill in pin block")
+				return "", ErrInvalidFill
 			}
 		}
 	}
